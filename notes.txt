@@ -1,0 +1,8 @@
+
+TODO
+
+traversable instance
+
+
+efficient slices, like in vector?
+need traversal/iter/fold over a slice, then
