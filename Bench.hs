@@ -97,13 +97,13 @@ seqsnoc !a (i:is) = seqsnoc (a Seq.|> i) is
 a16snoc !a [] = a
 a16snoc !a (i:is) = a16snoc (Vec.snoc a i) is
 
-{-- 10 million elements size (0..10m Int range of values)
-    map     : 1,4 GB
-    hashmap : 1,2 GB 
-    intmap  : 1,2 GB
-    seq     : 700 mb 
-    a16     : 525,4 mb 
-    a16ubox : 192 mb
+{-- RAM usage, fromList with 10 million elements
+    map     : 1384 mb
+    hashmap : 1696 mb 
+    intmap  : 1224 mb 
+    seq     : 605  mb 
+    vec     : 275  mb
+    vecubox : 192  mb
 --}
 
 
