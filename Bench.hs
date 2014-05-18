@@ -103,7 +103,7 @@ a16snoc !a (i:is) = a16snoc (Vec.snoc a i) is
     intmap  : 1224 mb 
     seq     : 605  mb 
     vec     : 275  mb
-    vecubox : 192  mb
+    vecubox : 127  mb
 --}
 
 

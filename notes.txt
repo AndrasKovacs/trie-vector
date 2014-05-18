@@ -2,7 +2,11 @@
 TODO
 
 traversable instance
+update indices with values (also do ptr equality trick here)
+pop back
+insert
+fromlist
+slice 
+append
 
-
-efficient slices, like in vector?
-need traversal/iter/fold over a slice, then
+efficient slices purely with index manipulation, like in vector?
