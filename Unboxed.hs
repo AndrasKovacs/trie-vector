@@ -143,7 +143,7 @@ foldl' f z (Vector size level arr tail) = case initSize ==# 0# of
 
         notfull :: Int# -> Int# -> ArrayArray# -> b -> b 
         notfull lasti level arr z = case level ># 0# of
-            1# -> AA.foldl lasti' (full level') (notfull lasti level' (AA.index arr lasti') z) arr
+            1# -> AA.foldl' lasti' (full level') (notfull lasti level' (AA.index arr lasti') z) arr
             _  -> A.foldl' width f z (aa2ba arr)
             where lasti' = index lasti level
                   level' = next level
@@ -151,7 +151,7 @@ foldl' f z (Vector size level arr tail) = case initSize ==# 0# of
 
         full :: Int# -> b -> ArrayArray# -> b
         full level z arr = case level ># 0# of
-            1# -> AA.foldl width (full (next level)) z arr
+            1# -> AA.foldl' width (full (next level)) z arr
             _  -> A.foldl' width f z (aa2ba arr)
             where width = NODE_WIDTH
 {-# INLINABLE foldl' #-}
@@ -164,7 +164,7 @@ foldl f z (Vector size level arr tail) = case initSize ==# 0# of
     where
         tailSize = andI# size KEY_MASK
         initSize = size -# tailSize
-        tailRes = A.foldl' tailSize f z tail 
+        tailRes = A.foldl tailSize f z tail 
 
         notfull :: Int# -> Int# -> ArrayArray# -> b -> b 
         notfull lasti level arr z = case level ># 0# of
