@@ -68,6 +68,9 @@ modseq !a (i:is) = modseq (Seq.adjust (const i) i a) is
 moda16 !a [] = a
 moda16 !a (i:is) = moda16 (Vec.modify a i (const i)) is
 
+insseq !a [] = a
+insseq !a (i:is) = insseq (let (!a', !b') = Seq.splitAt i a in (a' Seq.|> i) Seq.>< b') is
+
 modau !a [] = a
 modau !a (i:is) = modau (UVec.modify a i (const i)) is
 
@@ -96,6 +99,13 @@ seqsnoc !a (i:is) = seqsnoc (a Seq.|> i) is
 
 a16snoc !a [] = a
 a16snoc !a (i:is) = a16snoc (Vec.snoc a i) is
+
+
+inslist a [] = last a
+inslist a (i:is) = inslist (go i i a) is where
+    go 0 y xs = y:xs
+    go i y (x:xs) = x: go (i - 1) y xs
+    go _ _ xs = xs 
 
 {-- RAM usage, fromList with 10 million elements
     map     : 1384 mb
@@ -129,6 +139,13 @@ a16snoc !a (i:is) = a16snoc (Vec.snoc a i) is
 
 --}
 
+
+{-- Seq modify vs insert
+    mod : 15  - 32 usec
+    ins : 226 - 580 usec (!)
+
+--}
+
 main = do
     let 
         r1k    = force $ rs 1000
@@ -137,17 +154,17 @@ main = do
         r1m    = force $ rs 1000000
         r10m   = force $ rs 10000000
 
-        !au_1k   = aun 1000
-        !au_10k  = aun 10000
-        !au_100k = aun 100000
-        !au_1m   = aun 1000000
-        !au_10m  = aun 10000000
+        au_1k   = aun 1000
+        au_10k  = aun 10000
+        au_100k = aun 100000
+        au_1m   = aun 1000000
+        au_10m  = aun 10000000
 
-        a16_1k   = a16n 1000
-        a16_10k  = a16n 10000
-        a16_100k = a16n 100000
-        a16_1m   = a16n 1000000
-        a16_10m  = a16n 10000000
+        !a16_1k   = a16n 1000
+        !a16_10k  = a16n 10000
+        !a16_100k = a16n 100000
+        !a16_1m   = a16n 1000000
+        !a16_10m  = a16n 10000000
 
         v1k   = V.fromList [0..1000 ::Int]
         v10k  = V.fromList [0..10000 ::Int]
@@ -155,11 +172,11 @@ main = do
         v1m   = V.fromList [0..1000000 ::Int]
         v10m  = V.fromList [0..10000000 ::Int]
 
-        seq1k   = Seq.fromList [0..1000 :: Int]
-        seq10k  = Seq.fromList [0..10000 ::Int]
-        seq100k = Seq.fromList [0..100000 ::Int]
-        seq1m   = Seq.fromList [0..1000000 ::Int]
-        seq10m  = Seq.fromList [0..10000000 ::Int]
+        !seq1k   = Seq.fromList [0..1000 :: Int]
+        !seq10k  = Seq.fromList [0..10000 ::Int]
+        !seq100k = Seq.fromList [0..100000 ::Int]
+        !seq1m   = Seq.fromList [0..1000000 ::Int]
+        !seq10m  = Seq.fromList [0..10000000 ::Int]
 
         im1k    = IM.fromList $ zip [0..1000     :: Int] [0..1000     :: Int]
         im10k   = IM.fromList $ zip [0..10000    :: Int] [0..10000    :: Int]
@@ -179,14 +196,21 @@ main = do
         hm1m    = HM.fromList $ zip [0..1000000  :: Int] [0..1000000  :: Int]
         hm10m   = HM.fromList $ zip [0..10000000 :: Int] [0..10000000 :: Int]
 
+        !list1k   = [0..1000 :: Int]
+        !list10k  = [0..10000 ::Int]
+        !list100k = [0..100000 ::Int]
+        !list1m   = [0..1000000 ::Int]
+        !list10m  = [0..10000000 ::Int]
+
+
     defaultMainWith config (return ()) [
 
 
-        --bench "snoc_a16_1k "  $ whnf (a16snoc a16_1k   ) r1k  ,
-        --bench "snoc_a16_10k " $ whnf (a16snoc a16_10k  ) r10k ,
-        --bench "snoc_a16_100k" $ whnf (a16snoc a16_100k ) r100k,
-        --bench "snoc_a16_1m  " $ whnf (a16snoc a16_1m   ) r1m  ,
-        --bench "snoc_a16_10m " $ whnf (a16snoc a16_10m  ) r10m ,
+        bench "snoc_a16_1k "  $ whnf (a16snoc a16_1k   ) r1k  ,
+        bench "snoc_a16_10k " $ whnf (a16snoc a16_10k  ) r10k ,
+        bench "snoc_a16_100k" $ whnf (a16snoc a16_100k ) r100k,
+        bench "snoc_a16_1m  " $ whnf (a16snoc a16_1m   ) r1m  ,
+        bench "snoc_a16_10m " $ whnf (a16snoc a16_10m  ) r10m 
 
         --bench "snoc_a16_1k "  $ whnf (a16snoc a16_1k   ) r1k  ,
         --bench "snoc_a16_10k " $ whnf (a16snoc a16_10k  ) r10k ,
@@ -216,7 +240,7 @@ main = do
         --bench "ixa16_10k " $ whnf (ixa16 a16_10k  ) r10k ,
         --bench "ixa16_100k" $ whnf (ixa16 a16_100k ) r100k,
         --bench "ixa16_1m  " $ whnf (ixa16 a16_1m   ) r1m  ,
-        --bench "ixa16_10m " $ whnf (ixa16 a16_10m  ) r10m ,
+        --bench "ixa16_10m " $ whnf (ixa16 a16_10m  ) r10m 
 
         --bench "ixseq_1k "  $ whnf (ixseq seq1k   ) r1k  ,
         --bench "ixseq_10k " $ whnf (ixseq seq10k  ) r10k ,
@@ -257,17 +281,30 @@ main = do
         --bench "moda16_10k " $ whnf (moda16 a16_10k)  r10k , 
         --bench "moda16_100k" $ whnf (moda16 a16_100k) r100k, 
         --bench "moda16_1m  " $ whnf (moda16 a16_1m )  r1m  , 
-        --bench "moda16_10m " $ whnf (moda16 a16_10m)  r10m ,
+        --bench "moda16_10m " $ whnf (moda16 a16_10m)  r10m 
 
         --bench "modim_10k"  $ whnf (modim im10k  ) r10k,
         --bench "modim_100k" $ whnf (modim im100k ) r100k,
         --bench "modim_1m  " $ whnf (modim im1m   ) r1m  ,
         --bench "modim_10m " $ whnf (modim im10m  ) r10m 
 
-        --bench "modseq_10k"  $ whnf (modseq seq10k  ) r10k,
+        --bench "modseq_1k"   $ whnf (modseq seq1k   ) r1k  , 
+        --bench "modseq_10k"  $ whnf (modseq seq10k  ) r10k ,
         --bench "modseq_100k" $ whnf (modseq seq100k ) r100k,
         --bench "modseq_1m  " $ whnf (modseq seq1m   ) r1m  ,
-        --bench "modseq_10m " $ whnf (modseq seq10m  ) r10m 
+        --bench "modseq_10m " $ whnf (modseq seq10m  ) r10m ,
+
+        --bench "inslist_1k"   $ whnf (inslist list1k   ) r1k  , 
+        --bench "inslist_10k"  $ whnf (inslist list10k  ) r10k ,
+        --bench "inslist_100k" $ whnf (inslist list100k ) r100k,
+        --bench "inslist_1m  " $ whnf (inslist list1m   ) r1m  ,
+        --bench "inslist_10m " $ whnf (inslist list10m  ) r10m ,
+
+        --bench "insseq_1k"   $ whnf (insseq seq1k   ) r1k  , 
+        --bench "insseq_10k"  $ whnf (insseq seq10k  ) r10k ,
+        --bench "insseq_100k" $ whnf (insseq seq100k ) r100k,
+        --bench "insseq_1m  " $ whnf (insseq seq1m   ) r1m  ,
+        --bench "insseq_10m " $ whnf (insseq seq10m  ) r10m 
 
         ]
 

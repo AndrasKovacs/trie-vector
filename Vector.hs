@@ -3,8 +3,10 @@
 {-# OPTIONS_GHC -fno-full-laziness #-}
 
 module Vector (
-      Vector
+      Vector(..)
     , (|>)
+    , (!#)
+    , unsafeIndex#
     , (!)
     , unsafeIndex
     , snoc
@@ -13,6 +15,9 @@ module Vector (
     , foldl'
     , Vector.map
     , modify
+    , modify#
+    , unsafeModify#
+    , unsafeModify
     , singleton
     , empty
     , Vector.length
@@ -63,8 +68,13 @@ instance T.Traversable Vector where
 infixl 5 |>
 {-# INLINE (|>) #-}
 
+
 (!) :: forall a. Vector a -> Int -> a
-(!) (Vector size level arr tail) (I# i) = case i >=# 0# of 
+(!) v (I# i) = v !# i
+{-# INLINE (!) #-}
+
+(!#) :: forall a. Vector a -> Int# -> a
+(!#) (Vector size level arr tail) i = case i >=# 0# of 
     1# -> let
         tailSize = andI# size KEY_MASK
         initSize = size -# tailSize
@@ -78,10 +88,14 @@ infixl 5 |>
             1# -> go i (next level) (AA.index arr (index i level))
             _  -> A.index (aa2a arr) (index i level)
 infixl 5 !
-{-# INLINE (!) #-}
+{-# INLINE (!#) #-}
 
-unsafeIndex :: forall a. Vector a -> Int -> a
-unsafeIndex (Vector size level arr tail) (I# i) = let
+unsafeIndex :: Vector a -> Int -> a
+unsafeIndex v (I# i) = unsafeIndex# v i
+{-# INLINE unsafeIndex #-}
+
+unsafeIndex# :: forall a. Vector a -> Int# -> a
+unsafeIndex# (Vector size level arr tail) i = let
     tailSize = andI# size KEY_MASK
     initSize = size -# tailSize
     in case i <# initSize of
@@ -90,7 +104,7 @@ unsafeIndex (Vector size level arr tail) (I# i) = let
     where go i level arr = case level ># 0# of
             1# -> go i (next level) (AA.index arr (index i level))
             _  -> A.index (aa2a arr) (index i level)
-{-# INLINE unsafeIndex #-}
+{-# INLINE unsafeIndex# #-}
 
 snoc :: forall a. Vector a -> a -> Vector a
 snoc (Vector size level init tail) v = let
@@ -212,8 +226,8 @@ map f (Vector size level init tail) = Vector size level init' tail' where
         where width = NODE_WIDTH
 {-# INLINE map #-}
 
-modify :: forall a. Vector a -> Int -> (a -> a) -> Vector a 
-modify (Vector size level init tail) (I# i) f = case i >=# 0# of 
+modify# :: forall a. Vector a -> Int# -> (a -> a) -> Vector a 
+modify# (Vector size level init tail) i f = case i >=# 0# of 
     1# -> let
         tailSize = andI# size KEY_MASK
         initSize = size -# tailSize
@@ -227,7 +241,28 @@ modify (Vector size level init tail) (I# i) f = case i >=# 0# of
             1# -> AA.modify' width arr (index i level) (go i (next level))
             _  -> a2aa (A.modify NODE_WIDTH (aa2a arr) (index i level) f)
             where width = NODE_WIDTH
+{-# INLINE modify# #-}
+
+unsafeModify# :: forall a. Vector a -> Int# -> (a -> a) -> Vector a 
+unsafeModify# (Vector size level init tail) i f = 
+    let tailSize = andI# size KEY_MASK
+        initSize = size -# tailSize
+    in case i <# initSize of
+        1# -> Vector size level (go i level init) tail
+        _  -> Vector size level init (A.modify NODE_WIDTH tail (i -# initSize) f)
+    where go i level arr = case level ># 0# of
+            1# -> AA.modify' width arr (index i level) (go i (next level))
+            _  -> a2aa (A.modify NODE_WIDTH (aa2a arr) (index i level) f)
+            where width = NODE_WIDTH
+{-# INLINE unsafeModify# #-}
+
+modify :: forall a. Vector a -> Int -> (a -> a) -> Vector a 
+modify v (I# i) f = modify# v i f
 {-# INLINE modify #-}
+
+unsafeModify :: forall a. Vector a -> Int -> (a -> a) -> Vector a 
+unsafeModify v (I# i) f = unsafeModify# v i f
+{-# INLINE unsafeModify #-}
 
 empty :: Vector a
 empty = Vector 0# 0# emptyAA emptyTail where
