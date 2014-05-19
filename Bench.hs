@@ -17,6 +17,7 @@ import qualified Data.Sequence as Seq
 import qualified Data.HashMap.Strict as HM
 import qualified Data.IntMap.Strict as IM
 import qualified Data.Map.Strict as M 
+import qualified Deque as Deque 
 
 import System.Random
 import Control.Monad
@@ -26,86 +27,7 @@ import Data.List
 import Control.DeepSeq
 import Control.Monad.ST.Strict
 
-rs n = take 100 $ randomRs (0, n - 1 :: Int) (mkStdGen 0)
-
-a16n n = foldl' Vec.snoc Vec.empty $ [0..n::Int]
-aun  n = foldl' UVec.snoc  UVec.empty  $ [0..n::Int]
-
 config = defaultConfig {cfgSamples = ljust 8}
-
-
-ixa16 a [i]    = a Vec.! i 
-ixa16 a (i:is) = seq (a Vec.! i) (ixa16 a is)
-ixa16 _ _      = undefined 
-
-ixau a [i] = a UVec.! i 
-ixau a (i:is) = seq (a UVec.! i) (ixau a is)
-ixau _ _ = undefined 
-
-ixvec a [i] = a V.! i 
-ixvec a (i:is) = seq (a V.! i) (ixvec a is)
-ixvec _ _ = undefined 
-
-ixhm a [i] = a HM.! i 
-ixhm a (i:is) = seq (a HM.! i) (ixhm a is)
-ixhm _ _ = undefined 
-
-ixim a [i] = a IM.! i 
-ixim a (i:is) = seq (a IM.! i) (ixim a is)
-ixim _ _ = undefined 
-
-ixm a [i] = a M.! i 
-ixm a (i:is) = seq (a M.! i) (ixm a is)
-ixm _ _ = undefined 
-
-ixseq a [i] = Seq.index a i
-ixseq a (i:is) = seq (Seq.index a i) (ixseq a is)
-ixseq _ _ = undefined 
-
-modseq !a [] = a
-modseq !a (i:is) = modseq (Seq.adjust (const i) i a) is
-
-moda16 !a [] = a
-moda16 !a (i:is) = moda16 (Vec.modify a i (const i)) is
-
-insseq !a [] = a
-insseq !a (i:is) = insseq (let (!a', !b') = Seq.splitAt i a in (a' Seq.|> i) Seq.>< b') is
-
-modau !a [] = a
-modau !a (i:is) = modau (UVec.modify a i (const i)) is
-
-modhm !a [] = a
-modhm !a (i:is) = modhm (HM.adjust (const i) i a) is
-
-modim !a [] = a
-modim !a (i:is) = modim (IM.adjust (const i) i a) is
-
-modm !a [] = a
-modm !a (i:is) = modm (M.adjust (const i) i a) is
-
-modvec :: V.Vector Int -> [Int] -> V.Vector Int
-modvec v is = runST $ do
-    v <- V.unsafeThaw v
-    let go !v []     = return ()
-        go !v (i:is) = do
-            MV.write v i i
-            go v is 
-    go v is
-    V.unsafeFreeze v 
-
-
-seqsnoc !a [] = a
-seqsnoc !a (i:is) = seqsnoc (a Seq.|> i) is
-
-a16snoc !a [] = a
-a16snoc !a (i:is) = a16snoc (Vec.snoc a i) is
-
-
-inslist a [] = last a
-inslist a (i:is) = inslist (go i i a) is where
-    go 0 y xs = y:xs
-    go i y (x:xs) = x: go (i - 1) y xs
-    go _ _ xs = xs 
 
 {-- RAM usage, fromList with 10 million elements
     map     : 1384 mb
@@ -143,8 +65,16 @@ inslist a (i:is) = inslist (go i i a) is where
 {-- Seq modify vs insert
     mod : 15  - 32 usec
     ins : 226 - 580 usec (!)
-
 --}
+
+-- Deque read 10-20% slower than Vector 
+-- Deque modify 5-10% slower than Vector
+-- Deque snoc 15-20% slower than Vector
+    -- But it heavily depends on the size of the Deque.
+        -- If we box both the prefix and suffix, the difference is only ~5%
+        -- Read speed roughly the same if we box the vectors 
+            -- presumably because the benchmark iterations pretty much nail the deque root into cache
+                -- in real life this is usually not the case
 
 main = do
     let 
@@ -160,11 +90,11 @@ main = do
         au_1m   = aun 1000000
         au_10m  = aun 10000000
 
-        !a16_1k   = a16n 1000
-        !a16_10k  = a16n 10000
-        !a16_100k = a16n 100000
-        !a16_1m   = a16n 1000000
-        !a16_10m  = a16n 10000000
+        a16_1k   = a16n 1000
+        a16_10k  = a16n 10000
+        a16_100k = a16n 100000
+        a16_1m   = a16n 1000000
+        a16_10m  = a16n 10000000
 
         v1k   = V.fromList [0..1000 ::Int]
         v10k  = V.fromList [0..10000 ::Int]
@@ -172,11 +102,17 @@ main = do
         v1m   = V.fromList [0..1000000 ::Int]
         v10m  = V.fromList [0..10000000 ::Int]
 
-        !seq1k   = Seq.fromList [0..1000 :: Int]
-        !seq10k  = Seq.fromList [0..10000 ::Int]
-        !seq100k = Seq.fromList [0..100000 ::Int]
-        !seq1m   = Seq.fromList [0..1000000 ::Int]
-        !seq10m  = Seq.fromList [0..10000000 ::Int]
+        seq1k   = Seq.fromList [0..1000 :: Int]
+        seq10k  = Seq.fromList [0..10000 ::Int]
+        seq100k = Seq.fromList [0..100000 ::Int]
+        seq1m   = Seq.fromList [0..1000000 ::Int]
+        seq10m  = Seq.fromList [0..10000000 ::Int]
+
+        !deq1k   = Deque.fromList [0..1000 :: Int]
+        !deq10k  = Deque.fromList [0..10000 ::Int]
+        !deq100k = Deque.fromList [0..100000 ::Int]
+        !deq1m   = Deque.fromList [0..1000000 ::Int]
+        !deq10m  = Deque.fromList [0..10000000 ::Int]
 
         im1k    = IM.fromList $ zip [0..1000     :: Int] [0..1000     :: Int]
         im10k   = IM.fromList $ zip [0..10000    :: Int] [0..10000    :: Int]
@@ -196,27 +132,33 @@ main = do
         hm1m    = HM.fromList $ zip [0..1000000  :: Int] [0..1000000  :: Int]
         hm10m   = HM.fromList $ zip [0..10000000 :: Int] [0..10000000 :: Int]
 
-        !list1k   = [0..1000 :: Int]
-        !list10k  = [0..10000 ::Int]
-        !list100k = [0..100000 ::Int]
-        !list1m   = [0..1000000 ::Int]
-        !list10m  = [0..10000000 ::Int]
+        list1k   = [0..1000 :: Int]
+        list10k  = [0..10000 ::Int]
+        list100k = [0..100000 ::Int]
+        list1m   = [0..1000000 ::Int]
+        list10m  = [0..10000000 ::Int]
 
 
     defaultMainWith config (return ()) [
 
 
-        bench "snoc_a16_1k "  $ whnf (a16snoc a16_1k   ) r1k  ,
-        bench "snoc_a16_10k " $ whnf (a16snoc a16_10k  ) r10k ,
-        bench "snoc_a16_100k" $ whnf (a16snoc a16_100k ) r100k,
-        bench "snoc_a16_1m  " $ whnf (a16snoc a16_1m   ) r1m  ,
-        bench "snoc_a16_10m " $ whnf (a16snoc a16_10m  ) r10m 
+        --bench "snoc_a16_1k "  $ whnf (a16snoc a16_1k   ) r1k  ,
+        --bench "snoc_a16_10k " $ whnf (a16snoc a16_10k  ) r10k ,
+        --bench "snoc_a16_100k" $ whnf (a16snoc a16_100k ) r100k,
+        --bench "snoc_a16_1m  " $ whnf (a16snoc a16_1m   ) r1m  ,
+        --bench "snoc_a16_10m " $ whnf (a16snoc a16_10m  ) r10m 
 
         --bench "snoc_a16_1k "  $ whnf (a16snoc a16_1k   ) r1k  ,
         --bench "snoc_a16_10k " $ whnf (a16snoc a16_10k  ) r10k ,
         --bench "snoc_a16_100k" $ whnf (a16snoc a16_100k ) r100k,
         --bench "snoc_a16_1m  " $ whnf (a16snoc a16_1m   ) r1m  ,
         --bench "snoc_a16_10m " $ whnf (a16snoc a16_10m  ) r10m ,
+
+        bench "snoc_deq_1k "  $ whnf (deqsnoc deq1k   ) r1k  ,
+        bench "snoc_deq_10k " $ whnf (deqsnoc deq10k  ) r10k ,
+        bench "snoc_deq_100k" $ whnf (deqsnoc deq100k ) r100k,
+        bench "snoc_deq_1m  " $ whnf (deqsnoc deq1m   ) r1m  ,
+        bench "snoc_deq_10m " $ whnf (deqsnoc deq10m  ) r10m 
 
         --bench "modvec_1k "  $ whnf (modvec v1k   ) r1k  ,
         --bench "modvec_10k " $ whnf (modvec v10k  ) r10k ,
@@ -240,7 +182,13 @@ main = do
         --bench "ixa16_10k " $ whnf (ixa16 a16_10k  ) r10k ,
         --bench "ixa16_100k" $ whnf (ixa16 a16_100k ) r100k,
         --bench "ixa16_1m  " $ whnf (ixa16 a16_1m   ) r1m  ,
-        --bench "ixa16_10m " $ whnf (ixa16 a16_10m  ) r10m 
+        --bench "ixa16_10m " $ whnf (ixa16 a16_10m  ) r10m ,
+
+        --bench "ixdeq_1k "  $ whnf (ixdeq deq1k   ) r1k  ,
+        --bench "ixdeq_10k " $ whnf (ixdeq deq10k  ) r10k ,
+        --bench "ixdeq_100k" $ whnf (ixdeq deq100k ) r100k,
+        --bench "ixdeq_1m  " $ whnf (ixdeq deq1m   ) r1m  ,
+        --bench "ixdeq_10m " $ whnf (ixdeq deq10m  ) r10m 
 
         --bench "ixseq_1k "  $ whnf (ixseq seq1k   ) r1k  ,
         --bench "ixseq_10k " $ whnf (ixseq seq10k  ) r10k ,
@@ -281,7 +229,13 @@ main = do
         --bench "moda16_10k " $ whnf (moda16 a16_10k)  r10k , 
         --bench "moda16_100k" $ whnf (moda16 a16_100k) r100k, 
         --bench "moda16_1m  " $ whnf (moda16 a16_1m )  r1m  , 
-        --bench "moda16_10m " $ whnf (moda16 a16_10m)  r10m 
+        --bench "moda16_10m " $ whnf (moda16 a16_10m)  r10m ,
+
+        --bench "moddeq_1k  " $ whnf (moddeq deq1k )  r1k  , 
+        --bench "moddeq_10k " $ whnf (moddeq deq10k)  r10k , 
+        --bench "moddeq_100k" $ whnf (moddeq deq100k) r100k, 
+        --bench "moddeq_1m  " $ whnf (moddeq deq1m )  r1m  , 
+        --bench "moddeq_10m " $ whnf (moddeq deq10m)  r10m 
 
         --bench "modim_10k"  $ whnf (modim im10k  ) r10k,
         --bench "modim_100k" $ whnf (modim im100k ) r100k,
@@ -309,6 +263,95 @@ main = do
         ]
 
 
+
+
+
+rs n = take 100 $ randomRs (0, n - 1 :: Int) (mkStdGen 0)
+a16n n = foldl' Vec.snoc Vec.empty $ [0..n::Int]
+aun  n = foldl' UVec.snoc  UVec.empty  $ [0..n::Int]
+
+ixa16 a [i]    = a Vec.! i 
+ixa16 a (i:is) = seq (a Vec.! i) (ixa16 a is)
+ixa16 _ _      = undefined 
+
+ixau a [i] = a UVec.! i 
+ixau a (i:is) = seq (a UVec.! i) (ixau a is)
+ixau _ _ = undefined 
+
+ixvec a [i] = a V.! i 
+ixvec a (i:is) = seq (a V.! i) (ixvec a is)
+ixvec _ _ = undefined 
+
+ixhm a [i] = a HM.! i 
+ixhm a (i:is) = seq (a HM.! i) (ixhm a is)
+ixhm _ _ = undefined 
+
+ixim a [i] = a IM.! i 
+ixim a (i:is) = seq (a IM.! i) (ixim a is)
+ixim _ _ = undefined 
+
+ixm a [i] = a M.! i 
+ixm a (i:is) = seq (a M.! i) (ixm a is)
+ixm _ _ = undefined 
+
+ixdeq a [i] = a Deque.! i
+ixdeq a (i:is) = seq (a Deque.! i) (ixdeq a is)
+ixdeq _ _ = undefined
+
+ixseq a [i] = Seq.index a i
+ixseq a (i:is) = seq (Seq.index a i) (ixseq a is)
+ixseq _ _ = undefined 
+
+moddeq !a [] = a
+moddeq !a (i:is) = moddeq (Deque.modify a i (const i)) is
+
+modseq !a [] = a
+modseq !a (i:is) = modseq (Seq.adjust (const i) i a) is
+
+moda16 !a [] = a
+moda16 !a (i:is) = moda16 (Vec.modify a i (const i)) is
+
+insseq !a [] = a
+insseq !a (i:is) = insseq (let (!a', !b') = Seq.splitAt i a in (a' Seq.|> i) Seq.>< b') is
+
+modau !a [] = a
+modau !a (i:is) = modau (UVec.modify a i (const i)) is
+
+modhm !a [] = a
+modhm !a (i:is) = modhm (HM.adjust (const i) i a) is
+
+modim !a [] = a
+modim !a (i:is) = modim (IM.adjust (const i) i a) is
+
+modm !a [] = a
+modm !a (i:is) = modm (M.adjust (const i) i a) is
+
+modvec :: V.Vector Int -> [Int] -> V.Vector Int
+modvec v is = runST $ do
+    v <- V.unsafeThaw v
+    let go !v []     = return ()
+        go !v (i:is) = do
+            MV.write v i i
+            go v is 
+    go v is
+    V.unsafeFreeze v 
+
+
+seqsnoc !a [] = a
+seqsnoc !a (i:is) = seqsnoc (a Seq.|> i) is
+
+deqsnoc !a [] = a
+deqsnoc a (i:is) = deqsnoc (a Deque.|> i) is
+
+a16snoc !a [] = a
+a16snoc !a (i:is) = a16snoc (Vec.snoc a i) is
+
+
+inslist a [] = last a
+inslist a (i:is) = inslist (go i i a) is where
+    go 0 y xs = y:xs
+    go i y (x:xs) = x: go (i - 1) y xs
+    go _ _ xs = xs 
 
 
 

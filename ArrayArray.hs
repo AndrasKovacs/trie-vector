@@ -15,7 +15,11 @@ module ArrayArray (
     , init2
     , ArrayArray.foldl
     , ArrayArray.foldr 
-    , foldl' ) where
+    , foldl'
+    , rfoldl
+    , rfoldl'
+    , rfoldr
+    ) where
 
 import qualified Array as A
 import GHC.Prim 
@@ -93,6 +97,13 @@ foldr size f = \z arr -> go 0# size z arr where
         _  -> z 
 {-# INLINE foldr #-}
 
+rfoldr :: Int# -> (ArrayArray# -> b -> b) -> b -> ArrayArray# -> b
+rfoldr size f = \z arr -> go (size -# 1#) z arr where
+    go i z arr = case i >=# 0# of 
+        1# -> f (index arr i) (go (i -# 1#) z arr)
+        _  -> z 
+{-# INLINE rfoldr #-}
+
 foldl :: Int# -> (b -> ArrayArray# -> b) -> b -> ArrayArray# -> b
 foldl size f = \z arr -> go 0# size z arr  where
     go i s z arr = case i <# s of
@@ -100,12 +111,26 @@ foldl size f = \z arr -> go 0# size z arr  where
         _  -> z
 {-# INLINE foldl #-}
 
+rfoldl :: Int# -> (b -> ArrayArray# -> b) -> b -> ArrayArray# -> b
+rfoldl size f = \z arr -> go (size -# 1#) z arr where
+    go i z arr = case i >=# 0# of
+        1# -> go (i -# 1#) (f z (index arr i)) arr
+        _  -> z
+{-# INLINE rfoldl #-}
+
 foldl' :: Int# -> (b -> ArrayArray# -> b) -> b -> ArrayArray# -> b
 foldl' size f = \z arr -> go 0# size z arr  where
     go i s !z arr = case i <# s of
         1# -> go (i +# 1#) s (f z (index arr i)) arr
         _  -> z
 {-# INLINE foldl' #-}
+
+rfoldl' :: Int# -> (b -> ArrayArray# -> b) -> b -> ArrayArray# -> b
+rfoldl' size f = \z arr -> go (size -# 1#) z arr where
+    go i !z arr = case i >=# 0# of
+        1# -> go (i -# 1#) (f z (index arr i)) arr
+        _  -> z
+{-# INLINE rfoldl' #-}
 
 index :: ArrayArray# -> Int# -> ArrayArray#
 index = indexArrayArrayArray#

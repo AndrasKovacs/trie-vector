@@ -15,11 +15,15 @@ module Array (
     , Array.foldr
     , Array.foldl
     , Array.map 
-    , foldl' ) where
+    , foldl'
+    , rfoldl'
+    , rfoldl
+    , rfoldr
+    ) where
 
 import GHC.Base  (realWorld#)
 import GHC.Prim (
-    MutableArray#, Array#, State#, Int#, (<#), (+#), unsafeCoerce#,
+    MutableArray#, Array#, State#, Int#, (<#), (+#), (-#), (>=#), unsafeCoerce#,
     sizeofArray#, thawArray#, writeArray#, readArray#, indexArray#, newArray#,
     unsafeFreezeArray# )
 import GHC.Types (Int(..))
@@ -81,6 +85,13 @@ foldr size f = \z arr -> go 0# size z arr where
         _  -> z 
 {-# INLINE foldr #-}
 
+rfoldr :: Int# -> (a -> b -> b) -> b -> Array# a -> b
+rfoldr size f = \z arr -> go (size -# 1#) z arr where
+    go i z arr = case i >=# 0# of 
+        1# -> f (index arr i) (go (i -# 1#) z arr)
+        _  -> z 
+{-# INLINE rfoldr #-}
+
 foldl' :: Int# -> (b -> a -> b) -> b -> Array# a -> b
 foldl' size f = \z arr -> go 0# size z arr  where
     go i s !z arr = case i <# s of
@@ -88,12 +99,26 @@ foldl' size f = \z arr -> go 0# size z arr  where
         _  -> z
 {-# INLINE foldl' #-}
 
+rfoldl' :: Int# -> (b -> a -> b) -> b -> Array# a -> b
+rfoldl' size f = \z arr -> go (size -# 1#) z arr where
+    go i !z arr = case i >=# 0# of
+        1# -> go (i -# 1#) (f z (index arr i)) arr
+        _  -> z
+{-# INLINE rfoldl' #-}
+
 foldl :: Int# -> (b -> a -> b) -> b -> Array# a -> b
 foldl size f = \z arr -> go 0# size z arr  where
     go i s z arr = case i <# s of
         1# -> go (i +# 1#) s (f z (index arr i)) arr
         _  -> z
 {-# INLINE foldl #-}
+
+rfoldl :: Int# -> (b -> a -> b) -> b -> Array# a -> b
+rfoldl size f = \z arr -> go (size -# 1#) z arr where
+    go i z arr = case i >=# 0# of
+        1# -> go (i -# 1#) (f z (index arr i)) arr
+        _  -> z
+{-# INLINE rfoldl #-}
  
 fromList :: Int# -> [a] -> Array# a
 fromList size xs = run $ \s -> 

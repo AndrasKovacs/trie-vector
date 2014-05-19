@@ -13,6 +13,9 @@ module Vector (
     , Vector.foldr
     , Vector.foldl
     , foldl'
+    , rfoldr
+    , rfoldl
+    , rfoldl'
     , Vector.map
     , modify
     , modify#
@@ -37,10 +40,7 @@ import qualified ArrayArray as AA
 
 
 main = do
-    let r = [0..10]
-        s = Prelude.foldl snoc empty r
-    print $ s `unsafeIndex` 4
-    print $ Prelude.foldl snoc empty r
+    print $ rfoldr (:) [] $ Prelude.foldl snoc empty [0..10] 
 
 
 data Vector a = Vector {
@@ -113,11 +113,11 @@ snoc (Vector size level init tail) v = let
     size'     = size +# 1#
     tail'     = updateA tail tailSize v
 
-    insertArr :: ArrayArray# -> Int# -> Int# -> Int# -> ArrayArray# -> ArrayArray#
-    insertArr arr mask i level init = case level ># 0# of
+    snocArr :: ArrayArray# -> Int# -> Int# -> Int# -> ArrayArray# -> ArrayArray#
+    snocArr arr mask i level init = case level ># 0# of
         1# -> case andI# i mask ==# 0# of 
-            0# -> modifyAA init (index i level) (insertArr arr (nextMask mask) i (next level))
-            _  -> init1AA (insertArr arr (nextMask mask) i (next level) (_arr empty))
+            0# -> modifyAA init (index i level) (snocArr arr (nextMask mask) i (next level))
+            _  -> init1AA (snocArr arr (nextMask mask) i (next level) (_arr empty))
         _ -> arr
 
     in case tailSize ==# KEY_MASK of
@@ -126,7 +126,7 @@ snoc (Vector size level init tail) v = let
             mask      = maxSize -# 1#
             prevLevel = level +# KEY_BITS
             maxSize   = uncheckedIShiftL# 1# prevLevel
-            init'     = insertArr (a2aa tail') mask initSize level init
+            init'     = snocArr (a2aa tail') mask initSize level init
             in case initSize ==# maxSize of
                 0# -> Vector size' level init' (_tail empty)
                 _  -> Vector size' prevLevel (init2AA init init') (_tail empty)
@@ -156,6 +156,28 @@ foldr f z (Vector size level arr tail) = case initSize ==# 0# of
 {-# INLINE foldr #-}
 
 
+rfoldr :: forall a b. (a -> b -> b) -> b -> Vector a -> b 
+rfoldr f z (Vector size level arr tail) = case initSize ==# 0# of
+    0# -> A.rfoldr tailSize f (notfull (initSize -# 1#) level arr z) tail
+    _  -> A.rfoldr tailSize f z tail 
+    where
+        tailSize = andI# size KEY_MASK
+        initSize = size -# tailSize
+
+        notfull :: Int# -> Int# -> ArrayArray# -> b -> b 
+        notfull lasti level arr z = case level ># 0# of
+            1# -> AA.rfoldr lasti' (full level') (notfull lasti level' (AA.index arr lasti') z) arr
+            _  -> A.rfoldr NODE_WIDTH f z (aa2a arr)
+            where lasti' = index lasti level
+                  level' = next level
+
+        full :: Int# -> ArrayArray# -> b -> b
+        full level arr z = case level ># 0# of
+            1# -> AA.rfoldr NODE_WIDTH (full (next level)) z arr
+            _  -> A.rfoldr NODE_WIDTH f z (aa2a arr)
+{-# INLINE rfoldr #-}
+
+
 foldl' :: forall a b. (b -> a -> b) -> b -> Vector a -> b 
 foldl' f z (Vector size level arr tail) = case initSize ==# 0# of
     0# -> notfull (initSize -# 1#) level arr tailRes
@@ -180,6 +202,29 @@ foldl' f z (Vector size level arr tail) = case initSize ==# 0# of
             where width = NODE_WIDTH
 {-# INLINE foldl' #-}
 
+rfoldl' :: forall a b. (b -> a -> b) -> b -> Vector a -> b 
+rfoldl' f z (Vector size level arr tail) = case initSize ==# 0# of
+    0# -> A.rfoldl' tailSize f (notfull (initSize -# 1#) level arr z) tail  
+    _  -> A.rfoldl' tailSize f z tail 
+    where
+        tailSize = andI# size KEY_MASK
+        initSize = size -# tailSize
+
+        notfull :: Int# -> Int# -> ArrayArray# -> b -> b 
+        notfull lasti level arr z = case level ># 0# of
+            1# -> AA.rfoldl' lasti' (full level') (notfull lasti level' (AA.index arr lasti') z) arr
+            _  -> A.rfoldl' width f z (aa2a arr)
+            where lasti' = index lasti level
+                  level' = next level
+                  width = NODE_WIDTH
+
+        full :: Int# -> b -> ArrayArray# -> b
+        full level z arr = case level ># 0# of
+            1# -> AA.rfoldl' width (full (next level)) z arr
+            _  -> A.rfoldl' width f z (aa2a arr)
+            where width = NODE_WIDTH
+{-# INLINE rfoldl' #-}
+
 
 foldl :: forall a b. (b -> a -> b) -> b -> Vector a -> b 
 foldl f z (Vector size level arr tail) = case initSize ==# 0# of
@@ -202,6 +247,30 @@ foldl f z (Vector size level arr tail) = case initSize ==# 0# of
             1# -> AA.foldl NODE_WIDTH (full (next level)) z arr
             _  -> A.foldl NODE_WIDTH f z (aa2a arr)
 {-# INLINE foldl #-}
+
+
+rfoldl :: forall a b. (b -> a -> b) -> b -> Vector a -> b 
+rfoldl f z (Vector size level arr tail) = case initSize ==# 0# of
+    0# -> A.rfoldl tailSize f (notfull (initSize -# 1#) level arr z) tail  
+    _  -> A.rfoldl tailSize f z tail 
+    where
+        tailSize = andI# size KEY_MASK
+        initSize = size -# tailSize
+
+        notfull :: Int# -> Int# -> ArrayArray# -> b -> b 
+        notfull lasti level arr z = case level ># 0# of
+            1# -> AA.rfoldl lasti' (full level') (notfull lasti level' (AA.index arr lasti') z) arr
+            _  -> A.rfoldl width f z (aa2a arr)
+            where lasti' = index lasti level
+                  level' = next level
+                  width = NODE_WIDTH
+
+        full :: Int# -> b -> ArrayArray# -> b
+        full level z arr = case level ># 0# of
+            1# -> AA.rfoldl width (full (next level)) z arr
+            _  -> A.rfoldl width f z (aa2a arr)
+            where width = NODE_WIDTH
+{-# INLINE rfoldl #-}
 
 map :: forall a b. (a -> b) -> Vector a -> Vector b 
 map f s@(Vector 0# level init tail) = unsafeCoerce# s

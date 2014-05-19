@@ -6,12 +6,15 @@ import qualified Data.Sequence as Seq
 import qualified Data.HashMap.Strict as HM
 import qualified Data.IntMap.Strict as IM
 import qualified Data.Map.Strict as M 
+import qualified Data.Vector.Unboxed as Vector
 
 import Data.Ix
 import Control.Monad
 import Data.List
+import Control.DeepSeq
+
+-- Note : immutable vec takes less memory to construct than Data.Vector.FromList!
 
 main = do
-    let key = [0..10000000::Int]
-    let !x = foldl' (UV.snoc) UV.empty key
+    let !x = foldl' (UV.snoc) UV.empty [0..100000000::Int]
     print $ ()

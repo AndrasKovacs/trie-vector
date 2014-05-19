@@ -17,12 +17,16 @@ module ByteArray (
     , ByteArray.foldr
     , ByteArray.foldl
     , foldl'
+    , rfoldl
+    , rfoldl'
+    , rfoldr
     , fromList
     , toList
     , update
     , new
     , init1
-    , init2 ) where
+    , init2 
+    ) where
 
 import GHC.Base  (realWorld#)
 import Data.Primitive.Types
@@ -83,6 +87,13 @@ foldr size f = \z arr -> go 0# size z arr where
         _  -> z 
 {-# INLINE foldr #-}
 
+rfoldr :: Prim a => Int# -> (a -> b -> b) -> b -> ByteArray# -> b
+rfoldr size f = \z arr -> go (size -# 1#) z arr where
+    go i z arr = case i >=# 0# of 
+        1# -> f (index arr i) (go (i -# 1#) z arr)
+        _  -> z 
+{-# INLINE rfoldr #-}
+
 foldl' :: Prim a => Int# -> (b -> a -> b) -> b -> ByteArray# -> b
 foldl' size f = \z arr -> go 0# size z arr  where
     go i s !z arr = case i <# s of
@@ -90,12 +101,26 @@ foldl' size f = \z arr -> go 0# size z arr  where
         _  -> z
 {-# INLINE foldl' #-}
 
+rfoldl' :: Prim a => Int# -> (b -> a -> b) -> b -> ByteArray# -> b
+rfoldl' size f = \z arr -> go (size -# 1#) z arr where
+    go i !z arr = case i >=# 0# of
+        1# -> go (i -# 1#) (f z (index arr i)) arr
+        _  -> z
+{-# INLINE rfoldl' #-}
+
 foldl :: Prim a => Int# -> (b -> a -> b) -> b -> ByteArray# -> b
 foldl size f = \z arr -> go 0# size z arr  where
     go i s z arr = case i <# s of
         1# -> go (i +# 1#) s (f z (index arr i)) arr
         _  -> z
 {-# INLINE foldl #-}
+
+rfoldl :: Prim a => Int# -> (b -> a -> b) -> b -> ByteArray# -> b
+rfoldl size f = \z arr -> go (size -# 1#) z arr where
+    go i z arr = case i >=# 0# of
+        1# -> go (i -# 1#) (f z (index arr i)) arr
+        _  -> z
+{-# INLINE rfoldl #-}
 
 fromList :: forall a. Prim a => Int# -> [a] -> ByteArray#
 fromList size xs = run $ \s ->

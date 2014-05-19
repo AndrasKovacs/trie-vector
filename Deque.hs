@@ -6,18 +6,19 @@ module Deque where
 import GHC.Prim
 import GHC.Types
 import qualified Vector as V
-import Debug.Trace
+import qualified Data.Foldable as F
+import Data.List
 
 #define NODE_WIDTH 16#
 #define KEY_BITS 4#
 #define KEY_MASK 15#
 
 data Deque a = Deque {
-    prefix, suffix :: {-# UNPACK #-} !(V.Vector a)}
+    prefix ::  !(V.Vector a),
+    suffix ::  !(V.Vector a)}
 
 (!) :: Deque a -> Int -> a
 (!) (Deque prefix suffix) (I# i) =
-    traceShow ("!", I# (V._size prefix), I# (V._size prefix -# i)) $
     case i >=# 0# of
         1# -> case i <# V._size prefix of
             0# -> let i' = i -# V._size prefix in case i' <# V._size suffix of 
@@ -74,6 +75,18 @@ unsafeModify (Deque prefix suffix) (I# i) f =
         _  -> Deque (V.unsafeModify# prefix (V._size prefix -# i -# 1#) f) suffix
 {-# INLINE unsafeModify #-}
 
+foldr :: (a -> b -> b) -> b -> Deque a -> b
+foldr f z (Deque prefix suffix) = V.rfoldr f (V.foldr f z suffix) prefix
+{-# INLINE foldr #-}
+
+foldl :: (b -> a -> b) -> b -> Deque a -> b
+foldl f z (Deque prefix suffix) = V.foldl f (V.rfoldl f z prefix) suffix
+{-# INLINE foldl #-}
+
+foldl' :: (b -> a -> b) -> b -> Deque a -> b
+foldl' f z (Deque prefix suffix) = V.foldl' f (V.rfoldl' f z prefix) suffix
+{-# INLINE foldl' #-}
+
 empty :: Deque a 
 empty = Deque V.empty V.empty
 
@@ -85,14 +98,23 @@ length :: Deque a -> Int
 length (Deque prefix suffix) = I# (V._size prefix +# V._size suffix)
 {-# INLINE length #-}
 
-
--- TODO : reversed fold and traversal for Vector
 instance Show a => Show (Deque a) where
-    show (Deque pref suff) = "fromList " ++ show (reverse (V.toList pref) ++ V.toList suff)
+    show deq = "fromList " ++ show (toList deq)
+
+instance Functor Deque where
+    fmap = Deque.map 
+
+instance F.Foldable Deque where
+    foldr = Deque.foldr 
+
+toList :: Deque a -> [a]
+toList = Deque.foldr (:) []
+{-# INLINE toList #-}
 
 fromList :: [a] -> Deque a
-fromList xs = Deque V.empty (foldl (V.snoc) V.empty xs)
+fromList xs = Deque V.empty (Data.List.foldl' (V.snoc) V.empty xs)
 
 
 main = do
-    print $ modify (5 <| empty |> 3 |> 5 |> 100) 4 (+ 400)
+    print $ modify (5 <| empty |> 3 |> 5 |> 100) 3 (+ 400)
+    print $ 0 
