@@ -14,8 +14,8 @@ import Data.List
 #define KEY_MASK 15#
 
 data Deque a = Deque {
-    prefix ::  !(V.Vector a),
-    suffix ::  !(V.Vector a)}
+    prefix :: !(V.Vector a),
+    suffix :: !(V.Vector a)}
 
 (!) :: Deque a -> Int -> a
 (!) (Deque prefix suffix) (I# i) =

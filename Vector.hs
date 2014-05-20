@@ -11,10 +11,8 @@ module Vector (
     , unsafeIndex
     , snoc
     , Vector.foldr
-    , Vector.foldl
     , foldl'
     , rfoldr
-    , rfoldl
     , rfoldl'
     , Vector.map
     , modify
@@ -40,7 +38,7 @@ import qualified ArrayArray as AA
 
 
 main = do
-    print $ rfoldr (:) [] $ Prelude.foldl snoc empty [0..10] 
+    print $ Prelude.foldl snoc empty [0..10::Int]
 
 
 data Vector a = Vector {
@@ -58,6 +56,10 @@ instance Show a => Show (Vector a) where
 instance F.Foldable Vector where
     foldr = Vector.foldr
     {-# INLINE foldr #-}
+    foldl = Vector.foldl'
+    {-# INLINE foldl #-}
+    foldl' = Vector.foldl'
+    {-# INLINE foldl' #-}
 
 instance T.Traversable Vector where
     traverse f (Vector s l arr tail) = error "TODO: not implemented" 
@@ -225,53 +227,6 @@ rfoldl' f z (Vector size level arr tail) = case initSize ==# 0# of
             where width = NODE_WIDTH
 {-# INLINE rfoldl' #-}
 
-
-foldl :: forall a b. (b -> a -> b) -> b -> Vector a -> b 
-foldl f z (Vector size level arr tail) = case initSize ==# 0# of
-    0# -> notfull (initSize -# 1#) level arr tailRes
-    _  -> tailRes
-    where
-        tailSize = andI# size KEY_MASK
-        initSize = size -# tailSize
-        tailRes = A.foldl tailSize f z tail 
-
-        notfull :: Int# -> Int# -> ArrayArray# -> b -> b 
-        notfull lasti level arr z = case level ># 0# of
-            1# -> AA.foldl lasti' (full level') (notfull lasti level' (AA.index arr lasti') z) arr
-            _  -> A.foldl NODE_WIDTH f z (aa2a arr)
-            where lasti' = index lasti level
-                  level' = next level
-
-        full :: Int# -> b -> ArrayArray# -> b
-        full level z arr = case level ># 0# of
-            1# -> AA.foldl NODE_WIDTH (full (next level)) z arr
-            _  -> A.foldl NODE_WIDTH f z (aa2a arr)
-{-# INLINE foldl #-}
-
-
-rfoldl :: forall a b. (b -> a -> b) -> b -> Vector a -> b 
-rfoldl f z (Vector size level arr tail) = case initSize ==# 0# of
-    0# -> A.rfoldl tailSize f (notfull (initSize -# 1#) level arr z) tail  
-    _  -> A.rfoldl tailSize f z tail 
-    where
-        tailSize = andI# size KEY_MASK
-        initSize = size -# tailSize
-
-        notfull :: Int# -> Int# -> ArrayArray# -> b -> b 
-        notfull lasti level arr z = case level ># 0# of
-            1# -> AA.rfoldl lasti' (full level') (notfull lasti level' (AA.index arr lasti') z) arr
-            _  -> A.rfoldl width f z (aa2a arr)
-            where lasti' = index lasti level
-                  level' = next level
-                  width = NODE_WIDTH
-
-        full :: Int# -> b -> ArrayArray# -> b
-        full level z arr = case level ># 0# of
-            1# -> AA.rfoldl width (full (next level)) z arr
-            _  -> A.rfoldl width f z (aa2a arr)
-            where width = NODE_WIDTH
-{-# INLINE rfoldl #-}
-
 map :: forall a b. (a -> b) -> Vector a -> Vector b 
 map f s@(Vector 0# level init tail) = unsafeCoerce# s
 map f (Vector size level init tail) = Vector size level init' tail' where
@@ -366,10 +321,6 @@ nextMask mask = uncheckedIShiftRL# mask KEY_BITS
 index :: Int# -> Int# -> Int#
 index i level = andI# (uncheckedIShiftRL# i level) KEY_MASK
 {-# INLINE index #-}
-
-checkBound :: Int# -> Int# -> Int#
-checkBound size i = andI# (i >=# 0#) (i <# size)
-{-# INLINE checkBound #-}
 
 aa2a :: ArrayArray# -> Array# a
 aa2a = unsafeCoerce#

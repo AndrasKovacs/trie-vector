@@ -11,10 +11,8 @@ module Unboxed (
     , unsafeIndex
     , snoc
     , Unboxed.foldr
-    , Unboxed.foldl
     , foldl'
     , rfoldr
-    , rfoldl
     , rfoldl'
     , Unboxed.map
     , modify
@@ -218,52 +216,6 @@ rfoldl' f z (Vector size level arr tail) = case initSize ==# 0# of
             where width = NODE_WIDTH
 {-# INLINABLE rfoldl' #-}
 
-
-foldl :: forall a b. Prim a => (b -> a -> b) -> b -> Vector a -> b 
-foldl f z (Vector size level arr tail) = case initSize ==# 0# of
-    0# -> notfull (initSize -# 1#) level arr tailRes
-    _  -> tailRes
-    where
-        tailSize = andI# size KEY_MASK
-        initSize = size -# tailSize
-        tailRes = A.foldl tailSize f z tail 
-
-        notfull :: Int# -> Int# -> ArrayArray# -> b -> b 
-        notfull lasti level arr z = case level ># 0# of
-            1# -> AA.foldl lasti' (full level') (notfull lasti level' (AA.index arr lasti') z) arr
-            _  -> A.foldl NODE_WIDTH f z (aa2ba arr)
-            where lasti' = index lasti level
-                  level' = next level
-
-        full :: Int# -> b -> ArrayArray# -> b
-        full level z arr = case level ># 0# of
-            1# -> AA.foldl NODE_WIDTH (full (next level)) z arr
-            _  -> A.foldl NODE_WIDTH f z (aa2ba arr)
-{-# INLINABLE foldl #-}
-
-rfoldl :: forall a b. Prim a => (b -> a -> b) -> b -> Vector a -> b 
-rfoldl f z (Vector size level arr tail) = case initSize ==# 0# of
-    0# -> A.rfoldl tailSize f (notfull (initSize -# 1#) level arr z) tail  
-    _  -> A.rfoldl tailSize f z tail 
-    where
-        tailSize = andI# size KEY_MASK
-        initSize = size -# tailSize
-
-        notfull :: Int# -> Int# -> ArrayArray# -> b -> b 
-        notfull lasti level arr z = case level ># 0# of
-            1# -> AA.rfoldl lasti' (full level') (notfull lasti level' (AA.index arr lasti') z) arr
-            _  -> A.rfoldl width f z (aa2ba arr)
-            where lasti' = index lasti level
-                  level' = next level
-                  width = NODE_WIDTH
-
-        full :: Int# -> b -> ArrayArray# -> b
-        full level z arr = case level ># 0# of
-            1# -> AA.rfoldl width (full (next level)) z arr
-            _  -> A.rfoldl width f z (aa2ba arr)
-            where width = NODE_WIDTH
-{-# INLINABLE rfoldl #-}
-
 map :: forall a b. (Prim a, Prim b) => (a -> b) -> Vector a -> Vector b 
 map f s@(Vector 0# level init tail) = unsafeCoerce# s
 map f (Vector size level init tail) = Vector size level init' tail' where
@@ -361,10 +313,6 @@ nextMask mask = uncheckedIShiftRL# mask KEY_BITS
 index :: Int# -> Int# -> Int#
 index i level = andI# (uncheckedIShiftRL# i level) KEY_MASK
 {-# INLINE index #-}
-
-checkBound :: Int# -> Int# -> Int#
-checkBound size i = andI# (i >=# 0#) (i <# size)
-{-# INLINE checkBound #-}
 
 aa2ba :: ArrayArray# -> ByteArray#
 aa2ba = unsafeCoerce#
