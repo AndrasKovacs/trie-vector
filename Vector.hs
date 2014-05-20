@@ -113,12 +113,13 @@ snoc (Vector size level init tail) v = let
     tailSize  = andI# size KEY_MASK
     initSize  = size -# tailSize
     size'     = size +# 1#
-    tail'     = updateA tail tailSize v
+    width     = NODE_WIDTH
+    tail'     = A.update width tail tailSize v
 
     snocArr :: ArrayArray# -> Int# -> Int# -> Int# -> ArrayArray# -> ArrayArray#
     snocArr arr mask i level init = case level ># 0# of
         1# -> case andI# i mask ==# 0# of 
-            0# -> modifyAA init (index i level) (snocArr arr (nextMask mask) i (next level))
+            0# -> AA.modify NODE_WIDTH init (index i level) (snocArr arr (nextMask mask) i (next level))
             _  -> init1AA (snocArr arr (nextMask mask) i (next level) (_arr empty))
         _ -> arr
 
@@ -334,14 +335,6 @@ undefElem :: a
 undefElem = error "Vector: undefined element"
 {-# NOINLINE undefElem #-}
 
-modifyAA :: ArrayArray# -> Int# -> (ArrayArray# -> ArrayArray#) -> ArrayArray#
-modifyAA arr i a = let size = NODE_WIDTH in AA.modify' size arr i a 
-{-# INLINE modifyAA #-}
-
-updateA :: Array# a -> Int# -> a -> Array# a
-updateA arr i a = let size = NODE_WIDTH in A.update size arr i a
-{-# INLINE updateA #-}
-
 init1A :: a -> Array# a
 init1A a = A.init1 NODE_WIDTH a undefElem
 {-# INLINE init1A #-}
@@ -357,11 +350,11 @@ init2AA a1 a2 = AA.init2 NODE_WIDTH a1 a2 undefElem
 
 -- Bounds checked functions ---------------------------------------------------
 
---modifyAA :: ArrayArray# -> Int# -> (ArrayArray# -> ArrayArray#) -> ArrayArray#
---modifyAA arr i a = let size = NODE_WIDTH in case i <# sizeofArrayArray# arr of
+--AA.modify NODE_WIDTH :: ArrayArray# -> Int# -> (ArrayArray# -> ArrayArray#) -> ArrayArray#
+--AA.modify NODE_WIDTH arr i a = let size = NODE_WIDTH in case i <# sizeofArrayArray# arr of
 --    1# -> AA.modify' size arr i a 
---    _  -> error $ "modifyAA: out of bound: " ++ show (I# i) ++ " " ++ show (I# (sizeofArrayArray# arr))
---  {-# INLINE modifyAA #-}
+--    _  -> error $ "AA.modify NODE_WIDTH: out of bound: " ++ show (I# i) ++ " " ++ show (I# (sizeofArrayArray# arr))
+--  {-# INLINE AA.modify NODE_WIDTH #-}
 
 --updateA :: Array# a -> Int# -> a -> Array# a
 --updateA arr i a = let size = NODE_WIDTH in case i <# sizeofArray# arr of

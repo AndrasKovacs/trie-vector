@@ -61,7 +61,8 @@ modify' size arr i f = run $ \s ->
 
 map :: forall a b. (Prim a, Prim b) => Int# -> (a -> b) -> ByteArray# -> ByteArray#
 map size f = \arr ->
-    let go i marr size s = case i <# size of
+    let go :: Int# -> MutableByteArray# s -> Int# -> State# s -> State# s
+        go i marr size s = case i <# size of
             1# -> case writeByteArray# marr i (f (index arr i)) s of
                 s -> go (i +# 1#) marr size s
             _  -> s

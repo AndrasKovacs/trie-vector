@@ -100,12 +100,13 @@ snoc (Vector size level init tail) v = let
     tailSize  = andI# size KEY_MASK
     initSize  = size -# tailSize
     size'     = size +# 1#
-    tail'     = updateBA tail tailSize v
+    tail'     = A.update width tail tailSize v
+    width     = NODE_WIDTH
 
     insertArr :: ArrayArray# -> Int# -> Int# -> Int# -> ArrayArray# -> ArrayArray#
     insertArr arr mask i level init = case level ># 0# of
         1# -> case andI# i mask ==# 0# of 
-            0# -> modifyAA init (index i level) (insertArr arr (nextMask mask) i (next level))
+            0# -> AA.modify NODE_WIDTH init (index i level) (insertArr arr (nextMask mask) i (next level))
             _  -> init1AA (insertArr arr (nextMask mask) i (next level) (_arr (empty :: Vector a)))
         _ -> arr
 
@@ -325,14 +326,6 @@ ba2aa = unsafeCoerce#
 undefElem :: a
 undefElem = error "Vector: undefined element"
 {-# NOINLINE undefElem #-}
-
-modifyAA :: ArrayArray# -> Int# -> (ArrayArray# -> ArrayArray#) -> ArrayArray#
-modifyAA arr i a = let size = NODE_WIDTH in AA.modify' size arr i a 
-{-# INLINE modifyAA #-}
-
-updateBA :: Prim a => ByteArray# -> Int# -> a -> ByteArray#
-updateBA arr i a = let size = NODE_WIDTH in A.update size arr i a
-{-# INLINE updateBA #-}
 
 init1BA :: Prim a => a -> ByteArray#
 init1BA a = A.init1 NODE_WIDTH a
