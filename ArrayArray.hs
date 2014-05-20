@@ -1,5 +1,5 @@
 
-{-# LANGUAGE MagicHash, UnboxedTuples, Rank2Types, BangPatterns #-}
+{-# LANGUAGE MagicHash, UnboxedTuples, Rank2Types, BangPatterns, ScopedTypeVariables #-}
 {-# OPTIONS_GHC -fno-full-laziness #-}
 
 module ArrayArray (
@@ -56,38 +56,41 @@ modify' size arr i f = run $ \s ->
 
 map :: Int# -> (ArrayArray# -> ArrayArray#) ->  ArrayArray# -> ArrayArray#
 map size f = \arr ->
-    let go i marr size s = case i <# size of
+    let go :: Int# -> MutableArrayArray# s -> Int# -> State# s -> State# s
+        go i marr size s = case i <# size of
             1# -> case writeArrayArrayArray# marr i (f (index arr i)) s of
                 s -> go (i +# 1#) marr size s
             _  -> s
     in run $ \s ->
-        case thawArray# (unsafeCoerce# arr :: Array# Any) 0# size s of
-            (# s, marr #) -> case go 0# (unsafeCoerce# marr) size s of
+        case newArrayArray# size s of
+            (# s, marr #) -> case go 0# marr size s of
                 s -> unsafeFreezeArrayArray# (unsafeCoerce# marr) s
 {-# INLINE map #-}
 
 map' :: Int# -> (ArrayArray# -> ArrayArray#) ->  ArrayArray# -> ArrayArray#
 map' size f = \arr ->
-    let go i marr size s = case i <# size of
+    let go :: Int# -> MutableArrayArray# s -> Int# -> State# s -> State# s
+        go i marr size s = case i <# size of
             1# -> let !val = f (index arr i) in case writeArrayArrayArray# marr i val s of
                 s -> go (i +# 1#) marr size s
             _  -> s
     in run $ \s ->
-        case thawArray# (unsafeCoerce# arr :: Array# Any) 0# size s of
-            (# s, marr #) -> case go 0# (unsafeCoerce# marr) size s of
+        case newArrayArray# size s of
+            (# s, marr #) -> case go 0# marr size s of
                 s -> unsafeFreezeArrayArray# (unsafeCoerce# marr) s
 {-# INLINE map' #-}
 
 mapInitLast' :: Int# -> (ArrayArray# -> ArrayArray#) -> (ArrayArray# -> ArrayArray#) -> ArrayArray# -> ArrayArray#
 mapInitLast' lasti f g = \arr ->
-    let go i marr lasti s = case i <# lasti of
+    let go :: Int# -> MutableArrayArray# s -> Int# -> State# s -> State# s 
+        go i marr lasti s = case i <# lasti of
             1# -> let !val = f (index arr i) in case writeArrayArrayArray# marr i val s of
                 s -> go (i +# 1#) marr lasti s
             _  -> let !val = g (index arr lasti) in writeArrayArrayArray# marr lasti val s
     in run $ \s ->
-        case thawArray# (unsafeCoerce# arr :: Array# Any) 0# (lasti +# 1#) s of
-            (# s, marr #) -> case go 0# (unsafeCoerce# marr) lasti s of
-                s -> unsafeFreezeArrayArray# (unsafeCoerce# marr) s
+        case newArrayArray# (lasti +# 1#) s of
+            (# s, marr #) -> case go 0# marr lasti s of
+                s -> unsafeFreezeArrayArray# marr s
 {-# INLINE mapInitLast' #-}
 
 foldr :: Int# -> (ArrayArray# -> b -> b) -> b -> ArrayArray# -> b

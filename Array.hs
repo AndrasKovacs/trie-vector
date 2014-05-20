@@ -1,4 +1,4 @@
-{-# LANGUAGE MagicHash, UnboxedTuples, Rank2Types, BangPatterns #-}
+{-# LANGUAGE MagicHash, UnboxedTuples, Rank2Types, BangPatterns, ScopedTypeVariables #-}
 {-# OPTIONS_GHC -fno-full-laziness #-}
 
 module Array (
@@ -56,16 +56,17 @@ modify' size arr i f = run $ \s ->
                 s -> unsafeFreezeArray# marr s
 {-# INLINE modify' #-}
 
-map :: Int# -> (a -> b) ->  Array# a -> Array# b
+map :: forall a b. Int# -> (a -> b) ->  Array# a -> Array# b
 map size f = \arr ->
-    let go i marr size s = case i <# size of
+    let go :: Int# -> MutableArray# s b -> Int# -> State# s -> State# s
+        go i marr size s = case i <# size of
             1# -> case writeArray# marr i (f (index arr i)) s of
                 s -> go (i +# 1#) marr size s
             _  -> s
     in run $ \s ->
-        case thawArray# arr 0# size s of
-            (# s, marr #) -> case go 0# (unsafeCoerce# marr) size s of
-                s -> unsafeFreezeArray# (unsafeCoerce# marr) s
+        case newArray# size undefined s of
+            (# s, marr #) -> case go 0# marr size s of
+                s -> unsafeFreezeArray# marr s
 {-# INLINE map #-}
 
 index :: Array# a -> Int# -> a
