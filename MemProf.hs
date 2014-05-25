@@ -16,5 +16,5 @@ import Control.DeepSeq
 -- Note : immutable vec takes less memory to construct than Data.Vector.FromList!
 
 main = do
-    let !x = foldl' (UV.snoc) UV.empty [0..100000000::Int]
-    print $ ()
+    let !x = foldl' (V.snoc) V.empty [0..10000000::Int]
+    print $ ()   

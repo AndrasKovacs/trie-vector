@@ -62,19 +62,15 @@ config = defaultConfig {cfgSamples = ljust 8}
 --}
 
 
-{-- Seq modify vs insert
-    mod : 15  - 32 usec
-    ins : 226 - 580 usec (!)
+{-- Deque vs Vector 
+    read same
+    modify ~5% slower
+    snoc 15-20% slower
+        snoc much faster if we box the two vectors (so currently they're boxed)
 --}
 
--- Deque read 10-20% slower than Vector 
--- Deque modify 5-10% slower than Vector
--- Deque snoc 15-20% slower than Vector
-    -- But it heavily depends on the size of the Deque.
-        -- If we box both the prefix and suffix, the difference is only ~5%
-        -- Read speed roughly the same if we box the vectors 
-            -- presumably because the benchmark iterations pretty much nail the deque root into cache
-                -- in real life this is usually not the case
+{-- Trying to optimize tail snoc doesn't work; inline copy is just better #-}
+
 
 main = do
     let 
@@ -84,29 +80,29 @@ main = do
         r1m    = force $ rs 1000000
         r10m   = force $ rs 10000000
 
-        au_1k   = aun 1000
-        au_10k  = aun 10000
-        au_100k = aun 100000
-        au_1m   = aun 1000000
-        au_10m  = aun 10000000
+        --au_1k   = aun 1000
+        --au_10k  = aun 10000
+        --au_100k = aun 100000
+        --au_1m   = aun 1000000
+        --au_10m  = aun 10000000
 
-        a16_1k   = a16n 1000
-        a16_10k  = a16n 10000
-        a16_100k = a16n 100000
-        a16_1m   = a16n 1000000
-        a16_10m  = a16n 10000000
+        --a16_1k   = a16n 1000
+        --a16_10k  = a16n 10000
+        --a16_100k = a16n 100000
+        --a16_1m   = a16n 1000000
+        --a16_10m  = a16n 10000000
 
-        v1k   = V.fromList [0..1000 ::Int]
-        v10k  = V.fromList [0..10000 ::Int]
-        v100k = V.fromList [0..100000 ::Int]
-        v1m   = V.fromList [0..1000000 ::Int]
-        v10m  = V.fromList [0..10000000 ::Int]
+        --v1k   = V.fromList [0..1000 ::Int]
+        --v10k  = V.fromList [0..10000 ::Int]
+        --v100k = V.fromList [0..100000 ::Int]
+        --v1m   = V.fromList [0..1000000 ::Int]
+        --v10m  = V.fromList [0..10000000 ::Int]
 
-        seq1k   = Seq.fromList [0..1000 :: Int]
-        seq10k  = Seq.fromList [0..10000 ::Int]
-        seq100k = Seq.fromList [0..100000 ::Int]
-        seq1m   = Seq.fromList [0..1000000 ::Int]
-        seq10m  = Seq.fromList [0..10000000 ::Int]
+        --seq1k   = Seq.fromList [0..1000 :: Int]
+        --seq10k  = Seq.fromList [0..10000 ::Int]
+        --seq100k = Seq.fromList [0..100000 ::Int]
+        --seq1m   = Seq.fromList [0..1000000 ::Int]
+        --seq10m  = Seq.fromList [0..10000000 ::Int]
 
         !deq1k   = Deque.fromList [0..1000 :: Int]
         !deq10k  = Deque.fromList [0..10000 ::Int]
@@ -114,29 +110,29 @@ main = do
         !deq1m   = Deque.fromList [0..1000000 ::Int]
         !deq10m  = Deque.fromList [0..10000000 ::Int]
 
-        im1k    = IM.fromList $ zip [0..1000     :: Int] [0..1000     :: Int]
-        im10k   = IM.fromList $ zip [0..10000    :: Int] [0..10000    :: Int]
-        im100k  = IM.fromList $ zip [0..100000   :: Int] [0..100000   :: Int]
-        im1m    = IM.fromList $ zip [0..1000000  :: Int] [0..1000000  :: Int]
-        im10m   = IM.fromList $ zip [0..10000000 :: Int] [0..10000000 :: Int]
+        --im1k    = IM.fromList $ zip [0..1000     :: Int] [0..1000     :: Int]
+        --im10k   = IM.fromList $ zip [0..10000    :: Int] [0..10000    :: Int]
+        --im100k  = IM.fromList $ zip [0..100000   :: Int] [0..100000   :: Int]
+        --im1m    = IM.fromList $ zip [0..1000000  :: Int] [0..1000000  :: Int]
+        --im10m   = IM.fromList $ zip [0..10000000 :: Int] [0..10000000 :: Int]
 
-        m1k    = M.fromList $ zip [0..1000     :: Int] [0..1000     :: Int]
-        m10k   = M.fromList $ zip [0..10000    :: Int] [0..10000    :: Int]
-        m100k  = M.fromList $ zip [0..100000   :: Int] [0..100000   :: Int]
-        m1m    = M.fromList $ zip [0..1000000  :: Int] [0..1000000  :: Int]
-        m10m   = M.fromList $ zip [0..10000000 :: Int] [0..10000000 :: Int]
+        --m1k    = M.fromList $ zip [0..1000     :: Int] [0..1000     :: Int]
+        --m10k   = M.fromList $ zip [0..10000    :: Int] [0..10000    :: Int]
+        --m100k  = M.fromList $ zip [0..100000   :: Int] [0..100000   :: Int]
+        --m1m    = M.fromList $ zip [0..1000000  :: Int] [0..1000000  :: Int]
+        --m10m   = M.fromList $ zip [0..10000000 :: Int] [0..10000000 :: Int]
 
-        hm1k    = HM.fromList $ zip [0..1000     :: Int] [0..1000     :: Int]
-        hm10k   = HM.fromList $ zip [0..10000    :: Int] [0..10000    :: Int]
-        hm100k  = HM.fromList $ zip [0..100000   :: Int] [0..100000   :: Int]
-        hm1m    = HM.fromList $ zip [0..1000000  :: Int] [0..1000000  :: Int]
-        hm10m   = HM.fromList $ zip [0..10000000 :: Int] [0..10000000 :: Int]
+        --hm1k    = HM.fromList $ zip [0..1000     :: Int] [0..1000     :: Int]
+        --hm10k   = HM.fromList $ zip [0..10000    :: Int] [0..10000    :: Int]
+        --hm100k  = HM.fromList $ zip [0..100000   :: Int] [0..100000   :: Int]
+        --hm1m    = HM.fromList $ zip [0..1000000  :: Int] [0..1000000  :: Int]
+        --hm10m   = HM.fromList $ zip [0..10000000 :: Int] [0..10000000 :: Int]
 
-        list1k   = [0..1000 :: Int]
-        list10k  = [0..10000 ::Int]
-        list100k = [0..100000 ::Int]
-        list1m   = [0..1000000 ::Int]
-        list10m  = [0..10000000 ::Int]
+        --list1k   = [0..1000 :: Int]
+        --list10k  = [0..10000 ::Int]
+        --list100k = [0..100000 ::Int]
+        --list1m   = [0..1000000 ::Int]
+        --list10m  = [0..10000000 ::Int]
 
 
     defaultMainWith config (return ()) [
@@ -182,7 +178,7 @@ main = do
         --bench "ixa16_10k " $ whnf (ixa16 a16_10k  ) r10k ,
         --bench "ixa16_100k" $ whnf (ixa16 a16_100k ) r100k,
         --bench "ixa16_1m  " $ whnf (ixa16 a16_1m   ) r1m  ,
-        --bench "ixa16_10m " $ whnf (ixa16 a16_10m  ) r10m ,
+        --bench "ixa16_10m " $ whnf (ixa16 a16_10m  ) r10m 
 
         --bench "ixdeq_1k "  $ whnf (ixdeq deq1k   ) r1k  ,
         --bench "ixdeq_10k " $ whnf (ixdeq deq10k  ) r10k ,
@@ -294,8 +290,8 @@ ixm a [i] = a M.! i
 ixm a (i:is) = seq (a M.! i) (ixm a is)
 ixm _ _ = undefined 
 
-ixdeq a [i] = a Deque.! i
-ixdeq a (i:is) = seq (a Deque.! i) (ixdeq a is)
+ixdeq a [i] = Deque.unsafeIndex a i
+ixdeq a (i:is) = seq (Deque.unsafeIndex a i) (ixdeq a is)
 ixdeq _ _ = undefined
 
 ixseq a [i] = Seq.index a i

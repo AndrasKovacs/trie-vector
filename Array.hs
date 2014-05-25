@@ -4,8 +4,11 @@
 module Array (
       run
     , update
+    , unsafeUpdate
     , modify
     , modify'
+    , unsafeModify
+    , unsafeModify'
     , index
     , new
     , toList
@@ -13,20 +16,15 @@ module Array (
     , init1
     , init2
     , Array.foldr
-    , Array.foldl
     , Array.map 
     , foldl'
     , rfoldl'
-    , rfoldl
     , rfoldr
     ) where
 
 import GHC.Base  (realWorld#)
-import GHC.Prim (
-    MutableArray#, Array#, State#, Int#, (<#), (+#), (-#), (>=#), unsafeCoerce#,
-    sizeofArray#, thawArray#, writeArray#, readArray#, indexArray#, newArray#,
-    unsafeFreezeArray# )
-import GHC.Types (Int(..))
+import GHC.Prim 
+import GHC.Types 
 
 run :: (forall s. State# s -> (# State# s, Array# a #)) -> Array# a
 run strep = case strep realWorld# of
@@ -39,6 +37,13 @@ update size arr i a = run $ \s ->
         (# s, marr #) -> case writeArray# marr i a s of
             s -> unsafeFreezeArray# marr s
 {-# INLINE update #-}
+
+unsafeUpdate :: Array# a -> Int# -> a -> Array# a
+unsafeUpdate arr i a = run $ \s ->
+    case unsafeThawArray# arr s of
+        (# s, marr #) -> case writeArray# marr i a s of
+            s -> unsafeFreezeArray# marr s
+{-# INLINE unsafeUpdate #-}
 
 modify :: Int# -> Array# a -> Int# -> (a -> a) -> Array# a
 modify size arr i f = run $ \s ->
@@ -55,6 +60,22 @@ modify' size arr i f = run $ \s ->
             (# s, a #) -> let !val = f a in case writeArray# marr i val s of
                 s -> unsafeFreezeArray# marr s
 {-# INLINE modify' #-}
+
+unsafeModify :: Array# a -> Int# -> (a -> a) -> Array# a
+unsafeModify arr i f = run $ \s ->
+    case unsafeThawArray# arr s of
+        (# s, marr #) -> case readArray# marr i s of
+            (# s, a #) -> case writeArray# marr i (f a) s of
+                s -> unsafeFreezeArray# marr s
+{-# INLINE unsafeModify #-}
+
+unsafeModify' :: Array# a -> Int# -> (a -> a) -> Array# a
+unsafeModify' arr i f = run $ \s ->
+    case unsafeThawArray# arr s of
+        (# s, marr #) -> case readArray# marr i s of
+            (# s, a #) -> let !val = f a in case writeArray# marr i val s of
+                s -> unsafeFreezeArray# marr s
+{-# INLINE unsafeModify' #-}
 
 map :: forall a b. Int# -> (a -> b) ->  Array# a -> Array# b
 map size f = \arr ->
@@ -106,20 +127,6 @@ rfoldl' size f = \z arr -> go (size -# 1#) z arr where
         1# -> go (i -# 1#) (f z (index arr i)) arr
         _  -> z
 {-# INLINE rfoldl' #-}
-
-foldl :: Int# -> (b -> a -> b) -> b -> Array# a -> b
-foldl size f = \z arr -> go 0# size z arr  where
-    go i s z arr = case i <# s of
-        1# -> go (i +# 1#) s (f z (index arr i)) arr
-        _  -> z
-{-# INLINE foldl #-}
-
-rfoldl :: Int# -> (b -> a -> b) -> b -> Array# a -> b
-rfoldl size f = \z arr -> go (size -# 1#) z arr where
-    go i z arr = case i >=# 0# of
-        1# -> go (i -# 1#) (f z (index arr i)) arr
-        _  -> z
-{-# INLINE rfoldl #-}
  
 fromList :: Int# -> [a] -> Array# a
 fromList size xs = run $ \s -> 

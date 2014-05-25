@@ -22,7 +22,9 @@ module Unboxed (
     , singleton
     , empty
     , Unboxed.length
-    , toList ) where
+    , toList
+    --, fromList 
+    ) where
 
 import qualified Data.Foldable as F
 import qualified Data.Traversable as T 
@@ -45,7 +47,7 @@ main = do
 
 data Vector a = Vector {
     _size, _level :: Int#,
-    _arr :: ArrayArray#,
+    _init :: ArrayArray#,
     _tail :: ByteArray#}
 
 instance (Show a, Prim a) => Show (Vector a) where
@@ -107,7 +109,7 @@ snoc (Vector size level init tail) v = let
     insertArr arr mask i level init = case level ># 0# of
         1# -> case andI# i mask ==# 0# of 
             0# -> AA.modify NODE_WIDTH init (index i level) (insertArr arr (nextMask mask) i (next level))
-            _  -> init1AA (insertArr arr (nextMask mask) i (next level) (_arr (empty :: Vector a)))
+            _  -> init1AA (insertArr arr (nextMask mask) i (next level) (_init (empty :: Vector a)))
         _ -> arr
 
     in case tailSize ==# KEY_MASK of
@@ -121,6 +123,41 @@ snoc (Vector size level init tail) v = let
                 0# -> Vector size' level init' (_tail (empty :: Vector a))
                 _  -> Vector size' prevLevel (init2AA init init') (_tail (empty :: Vector a))
 {-# INLINABLE snoc #-}
+
+-- not yet right
+
+--unsafeSnoc :: forall a. Prim a => (# Int#, Int#, ArrayArray#, ByteArray# #) -> a -> (# Int#, Int#, ArrayArray#, ByteArray# #)
+--unsafeSnoc (# size, level, init, tail #) v = let
+--    tailSize  = andI# size KEY_MASK
+--    initSize  = size -# tailSize
+--    size'     = size +# 1#
+--    tail'     = A.unsafeUpdate tail tailSize v
+
+--    unsafeSnocArr :: ArrayArray# -> Int# -> Int# -> Int# -> ArrayArray# -> ArrayArray#
+--    unsafeSnocArr arr mask i level init = case level ># 0# of
+--        1# -> case andI# i mask ==# 0# of 
+--            0# -> AA.unsafeModify' init (index i level) (unsafeSnocArr arr (nextMask mask) i (next level))
+--            _  -> init1AA (unsafeSnocArr arr (nextMask mask) i (next level) (_init (empty :: Vector a)))
+--        _ -> arr
+
+--    in case tailSize ==# KEY_MASK of
+--        0# ->  (# size', level, init, tail' #)
+--        _  -> let
+--            mask      = maxSize -# 1#
+--            prevLevel = level +# KEY_BITS
+--            maxSize   = uncheckedIShiftL# 1# prevLevel
+--            init'     = unsafeSnocArr (ba2aa tail') mask initSize level init
+--            in case initSize ==# maxSize of
+--                0# -> (# size', level, init', A.new NODE_WIDTH #)
+--                _  -> (# size', prevLevel, init2AA init init', A.new NODE_WIDTH #)
+--{-# INLINE unsafeSnoc #-}
+
+--fromList :: Prim a => [a] -> Vector a
+--fromList xs = case go (# 0#, 0#, AA.new NODE_WIDTH, A.new NODE_WIDTH #) xs of
+--    (# size, level, init, tail #) -> Vector size level init tail
+--    where go acc (x:xs) = go (unsafeSnoc acc x) xs
+--          go acc []     = acc 
+--{-# INLINE fromList #-}
 
 
 foldr :: forall a b. Prim a => (a -> b -> b) -> b -> Vector a -> b 
@@ -287,7 +324,7 @@ empty = Vector 0# 0# emptyAA emptyTail where
 {-# INLINABLE empty #-}
 
 singleton :: forall a. Prim a => a -> Vector a
-singleton a = Vector 1# 0# (_arr (empty :: Vector a)) (init1BA a)
+singleton a = Vector 1# 0# (_init (empty :: Vector a)) (init1BA a)
 {-# INLINABLE singleton #-}
 
 length :: Vector a -> Int

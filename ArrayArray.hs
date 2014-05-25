@@ -5,18 +5,19 @@
 module ArrayArray (
       run
     , update
+    , unsafeUpdate
     , modify
     , modify'
+    , unsafeModify
+    , unsafeModify'
     , map'
     , mapInitLast'
     , index
     , new
     , init1
     , init2
-    , ArrayArray.foldl
     , ArrayArray.foldr 
     , foldl'
-    , rfoldl
     , rfoldl'
     , rfoldr
     ) where
@@ -38,6 +39,13 @@ update size arr i a  = run $ \s ->
             s -> unsafeFreezeArrayArray# (unsafeCoerce# marr) s
 {-# INLINE update #-}
 
+unsafeUpdate :: ArrayArray# -> Int# -> ArrayArray# -> ArrayArray#
+unsafeUpdate arr i a  = run $ \s ->
+    case unsafeThawArray# (unsafeCoerce# arr :: Array# Any) s of
+        (# s, marr #) -> case writeArrayArrayArray# (unsafeCoerce# marr) i a s of
+            s -> unsafeFreezeArrayArray# (unsafeCoerce# marr) s
+{-# INLINE unsafeUpdate #-}
+
 modify :: Int# -> ArrayArray# -> Int# -> (ArrayArray# -> ArrayArray#) -> ArrayArray#
 modify size arr i f  = run $ \s ->
     case thawArray# (unsafeCoerce# arr :: Array# Any) 0# size s of
@@ -53,6 +61,22 @@ modify' size arr i f = run $ \s ->
             (# s, a #) -> let !val = f a in case writeArrayArrayArray# (unsafeCoerce# marr) i val s of
                 s -> unsafeFreezeArrayArray# (unsafeCoerce# marr) s
 {-# INLINE modify' #-}
+
+unsafeModify :: ArrayArray# -> Int# -> (ArrayArray# -> ArrayArray#) -> ArrayArray#
+unsafeModify arr i f  = run $ \s ->
+    case unsafeThawArray# (unsafeCoerce# arr :: Array# Any) s of
+        (# s, marr #) -> case readArrayArrayArray# (unsafeCoerce# marr) i s of
+            (# s, a #) -> case writeArrayArrayArray# (unsafeCoerce# marr) i (f a) s of
+                s -> unsafeFreezeArrayArray# (unsafeCoerce# marr) s
+{-# INLINE unsafeModify #-}
+
+unsafeModify' :: ArrayArray# -> Int# -> (ArrayArray# -> ArrayArray#) -> ArrayArray#
+unsafeModify' arr i f = run $ \s ->
+    case unsafeThawArray# (unsafeCoerce# arr :: Array# Any) s of
+        (# s, marr #) -> case readArrayArrayArray# (unsafeCoerce# marr) i s of
+            (# s, a #) -> let !val = f a in case writeArrayArrayArray# (unsafeCoerce# marr) i val s of
+                s -> unsafeFreezeArrayArray# (unsafeCoerce# marr) s
+{-# INLINE unsafeModify' #-}
 
 map :: Int# -> (ArrayArray# -> ArrayArray#) ->  ArrayArray# -> ArrayArray#
 map size f = \arr ->
@@ -106,20 +130,6 @@ rfoldr size f = \z arr -> go (size -# 1#) z arr where
         1# -> f (index arr i) (go (i -# 1#) z arr)
         _  -> z 
 {-# INLINE rfoldr #-}
-
-foldl :: Int# -> (b -> ArrayArray# -> b) -> b -> ArrayArray# -> b
-foldl size f = \z arr -> go 0# size z arr  where
-    go i s z arr = case i <# s of
-        1# -> go (i +# 1#) s (f z (index arr i)) arr
-        _  -> z
-{-# INLINE foldl #-}
-
-rfoldl :: Int# -> (b -> ArrayArray# -> b) -> b -> ArrayArray# -> b
-rfoldl size f = \z arr -> go (size -# 1#) z arr where
-    go i z arr = case i >=# 0# of
-        1# -> go (i -# 1#) (f z (index arr i)) arr
-        _  -> z
-{-# INLINE rfoldl #-}
 
 foldl' :: Int# -> (b -> ArrayArray# -> b) -> b -> ArrayArray# -> b
 foldl' size f = \z arr -> go 0# size z arr  where

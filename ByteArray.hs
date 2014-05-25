@@ -12,17 +12,17 @@ module ByteArray (
       run
     , thaw
     , modify'
+    , unsafeModify'
     , ByteArray.map
     , index
     , ByteArray.foldr
-    , ByteArray.foldl
     , foldl'
-    , rfoldl
     , rfoldl'
     , rfoldr
     , fromList
     , toList
     , update
+    , unsafeUpdate
     , new
     , init1
     , init2 
@@ -43,7 +43,7 @@ thaw :: Int# -> ByteArray# -> State# s -> (# State# s, MutableByteArray# s #)
 thaw size arr s =
     case newByteArray# size s of
         (# s, marr #) -> case copyByteArray# arr 0# marr 0# size s of
-            s -> (# s, marr #) 
+            s -> (# s, marr #)
 
 update :: forall a. Prim a => Int# -> ByteArray# -> Int# -> a -> ByteArray#
 update size arr i a = run $ \s ->
@@ -52,12 +52,24 @@ update size arr i a = run $ \s ->
             s -> unsafeFreezeByteArray# marr s 
 {-# INLINE update #-}
 
+unsafeUpdate :: forall a. Prim a => ByteArray# -> Int# -> a -> ByteArray#
+unsafeUpdate arr i a = run $ \s ->
+    case writeByteArray# (unsafeCoerce# arr) i a s of
+        s -> (# s, arr #) 
+{-# INLINE unsafeUpdate #-}
+
 modify' :: forall a. Prim a => Int# -> ByteArray# -> Int# -> (a -> a) -> ByteArray#
 modify' size arr i f = run $ \s ->
     case thaw (size *# sizeOf# (undefined :: a)) arr s of
         (# s, marr #) -> case writeByteArray# marr i (f (index arr i)) s of
             s -> unsafeFreezeByteArray# marr s 
 {-# INLINE modify' #-}
+
+unsafeModify' :: forall a. Prim a => ByteArray# -> Int# -> (a -> a) -> ByteArray#
+unsafeModify' arr i f = run $ \s ->
+    case writeByteArray# (unsafeCoerce# arr) i (f (index arr i)) s of
+        s -> (# s, arr #)
+{-# INLINE unsafeModify' #-}
 
 map :: forall a b. (Prim a, Prim b) => Int# -> (a -> b) -> ByteArray# -> ByteArray#
 map size f = \arr ->
@@ -108,20 +120,6 @@ rfoldl' size f = \z arr -> go (size -# 1#) z arr where
         1# -> go (i -# 1#) (f z (index arr i)) arr
         _  -> z
 {-# INLINE rfoldl' #-}
-
-foldl :: Prim a => Int# -> (b -> a -> b) -> b -> ByteArray# -> b
-foldl size f = \z arr -> go 0# size z arr  where
-    go i s z arr = case i <# s of
-        1# -> go (i +# 1#) s (f z (index arr i)) arr
-        _  -> z
-{-# INLINE foldl #-}
-
-rfoldl :: Prim a => Int# -> (b -> a -> b) -> b -> ByteArray# -> b
-rfoldl size f = \z arr -> go (size -# 1#) z arr where
-    go i z arr = case i >=# 0# of
-        1# -> go (i -# 1#) (f z (index arr i)) arr
-        _  -> z
-{-# INLINE rfoldl #-}
 
 fromList :: forall a. Prim a => Int# -> [a] -> ByteArray#
 fromList size xs = run $ \s ->
