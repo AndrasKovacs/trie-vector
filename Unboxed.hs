@@ -11,7 +11,7 @@ module Unboxed (
     , unsafeIndex
     , snoc
     , Unboxed.foldr
-    , foldl'
+    , Unboxed.foldl'
     , rfoldr
     , rfoldl'
     , Unboxed.map
@@ -23,7 +23,7 @@ module Unboxed (
     , empty
     , Unboxed.length
     , toList
-    --, fromList 
+    , fromList 
     ) where
 
 import qualified Data.Foldable as F
@@ -34,6 +34,8 @@ import Data.Primitive.Types
 
 import qualified ByteArray as A
 import qualified ArrayArray as AA
+
+import Data.List
 
 #define NODE_WIDTH 16#
 #define KEY_BITS 4#
@@ -124,7 +126,9 @@ snoc (Vector size level init tail) v = let
                 _  -> Vector size' prevLevel (init2AA init init') (_tail (empty :: Vector a))
 {-# INLINABLE snoc #-}
 
--- not yet right
+
+
+-- Segfaults!
 
 --unsafeSnoc :: forall a. Prim a => (# Int#, Int#, ArrayArray#, ByteArray# #) -> a -> (# Int#, Int#, ArrayArray#, ByteArray# #)
 --unsafeSnoc (# size, level, init, tail #) v = let
@@ -137,10 +141,10 @@ snoc (Vector size level init tail) v = let
 --    unsafeSnocArr arr mask i level init = case level ># 0# of
 --        1# -> case andI# i mask ==# 0# of 
 --            0# -> AA.unsafeModify' init (index i level) (unsafeSnocArr arr (nextMask mask) i (next level))
---            _  -> init1AA (unsafeSnocArr arr (nextMask mask) i (next level) (_init (empty :: Vector a)))
+--            _  -> init1AA (unsafeSnocArr arr (nextMask mask) i (next level) (AA.new NODE_WIDTH))
 --        _ -> arr
 
---    in case tailSize ==# KEY_MASK of
+--    in case (traceShow ("majom") (==#)) tailSize  KEY_MASK of
 --        0# ->  (# size', level, init, tail' #)
 --        _  -> let
 --            mask      = maxSize -# 1#
@@ -160,9 +164,14 @@ snoc (Vector size level init tail) v = let
 --{-# INLINE fromList #-}
 
 
+
+fromList :: Prim a => [a] -> Vector a
+fromList = Data.List.foldl' snoc empty 
+
+
 foldr :: forall a b. Prim a => (a -> b -> b) -> b -> Vector a -> b 
-foldr f z (Vector size level arr tail) = case initSize ==# 0# of
-    0# -> notfull (initSize -# 1#) level arr tailRes
+foldr f z (Vector size level init tail) = case initSize ==# 0# of
+    0# -> notfull (initSize -# 1#) level init tailRes
     _  -> tailRes
     where
         tailSize = andI# size KEY_MASK
@@ -185,8 +194,8 @@ foldr f z (Vector size level arr tail) = case initSize ==# 0# of
 
 
 rfoldr :: forall a b. Prim a => (a -> b -> b) -> b -> Vector a -> b 
-rfoldr f z (Vector size level arr tail) = case initSize ==# 0# of
-    0# -> A.rfoldr tailSize f (notfull (initSize -# 1#) level arr z) tail
+rfoldr f z (Vector size level init tail) = case initSize ==# 0# of
+    0# -> A.rfoldr tailSize f (notfull (initSize -# 1#) level init z) tail
     _  -> A.rfoldr tailSize f z tail 
     where
         tailSize = andI# size KEY_MASK
@@ -207,9 +216,9 @@ rfoldr f z (Vector size level arr tail) = case initSize ==# 0# of
 
 
 foldl' :: forall a b. Prim a => (b -> a -> b) -> b -> Vector a -> b 
-foldl' f z (Vector size level arr tail) = case initSize ==# 0# of
-    0# -> notfull (initSize -# 1#) level arr tailRes
-    _  -> tailRes
+foldl' f z (Vector size level init tail) = case initSize ==# 0# of
+    0# -> A.foldl' tailSize f (notfull (initSize -# 1#) level init z) tail  
+    _  -> A.foldl' tailSize f z tail 
     where
         tailSize = andI# size KEY_MASK
         initSize = size -# tailSize
@@ -232,8 +241,8 @@ foldl' f z (Vector size level arr tail) = case initSize ==# 0# of
 
 
 rfoldl' :: forall a b. Prim a => (b -> a -> b) -> b -> Vector a -> b 
-rfoldl' f z (Vector size level arr tail) = case initSize ==# 0# of
-    0# -> A.rfoldl' tailSize f (notfull (initSize -# 1#) level arr z) tail  
+rfoldl' f z (Vector size level init tail) = case initSize ==# 0# of
+    0# -> A.rfoldl' tailSize f (notfull (initSize -# 1#) level init z) tail  
     _  -> A.rfoldl' tailSize f z tail 
     where
         tailSize = andI# size KEY_MASK

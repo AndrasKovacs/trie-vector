@@ -1,12 +1,8 @@
 
 TODO
 
-traversable instance
-update indices with values (also do ptr equality trick here)
-pop back
-insert
-fromlist
-slice 
+ord
+eq
 append
-
-efficient slices purely with index manipulation, like in vector?
+traversable
+pop back
