@@ -6,12 +6,13 @@ module Vector (
       Vector(..)
     , (|>)
     , (!#)
+    , append
     , unsafeIndex#
     , (!)
     , unsafeIndex
     , snoc
     , Vector.foldr
-    , foldl'
+    , Vector.foldl'
     , rfoldr
     , rfoldl'
     , Vector.map
@@ -22,8 +23,8 @@ module Vector (
     , singleton
     , empty
     , Vector.length
-    --, toList
-    --, fromList 
+    , toList
+    , fromList 
 
     ) where
 
@@ -32,6 +33,8 @@ import qualified Data.Traversable as T
 import Data.Monoid
 import GHC.Prim
 import GHC.Types
+import Debug.Trace
+import Data.List
 
 import qualified Array as A
 import qualified ArrayArray as AA
@@ -44,7 +47,7 @@ import qualified ArrayArray as AA
 main = do
     let !a = Prelude.foldl snoc empty [0..10]
     let !b = Prelude.foldl snoc empty [0..20]
-    print $ a <> b 
+    print $ 0
 
 
 
@@ -73,15 +76,28 @@ instance T.Traversable Vector where
 
 
 
--- TEMPORARY APPEND
-append :: Vector a -> Vector a -> Vector a
+append :: Show a => Vector a -> Vector a -> Vector a
 append a b = Vector.foldl' snoc a b 
 {-# INLINE append #-}
 
-instance Monoid (Vector a) where
-    mempty = empty
-    mappend = append
-    {-# INLINE mappend #-}
+
+copyEdge :: Vector a -> Vector a
+copyEdge (Vector size level init tail) = let
+    tailSize = andI# size KEY_MASK
+    initSize = size -# tailSize
+    width    = NODE_WIDTH
+    tail'    = cloneArray# tail 0# width
+
+    go i level arr = case level ># 0# of
+        1# -> AA.modify' width arr (index i level) (go i (next level))
+        _  -> a2aa (cloneArray# (aa2a arr) 0# width)
+
+    in case initSize of
+        0# -> Vector size level (a2aa (cloneArray# (aa2a init) 0# width)) tail'
+        _  -> Vector size level (go (initSize -# 1#) level init) tail'
+{-# INLINE copyEdge #-}
+
+
 
 
 --getNewLevel :: Int# -> Int# -> Int#
@@ -103,7 +119,6 @@ instance Monoid (Vector a) where
 --    raisedInit         = raise init level newLevel
 --    raisedInitWithTail = snocArr tail (maxSize newLevel -# 1#) newLevel raisedInit
 
-    
 
 
 (|>) :: Vector a -> a -> Vector a
@@ -158,6 +173,12 @@ snocArr arr mask i level init = case level ># 0# of
         where width = NODE_WIDTH
     _ -> arr
 
+unsafeSnocArr :: ArrayArray# -> Int# -> Int# -> Int# -> ArrayArray# -> ArrayArray#
+unsafeSnocArr arr mask i level init = case level ># 0# of
+    1# -> case andI# i mask ==# 0# of 
+        0# -> AA.unsafeModify' init (index i level) (unsafeSnocArr arr (nextMask mask) i (next level))
+        _  -> init1AA (unsafeSnocArr arr (nextMask mask) i (next level) (AA.new NODE_WIDTH))
+    _ -> arr
 
 snoc :: forall a. Vector a -> a -> Vector a
 snoc (Vector size level init tail) v = let
@@ -179,19 +200,48 @@ snoc (Vector size level init tail) v = let
                 _  -> Vector size' prevLevel (init2AA init init') (_tail empty)
 {-# INLINE snoc #-}
 
+popArray :: Int# -> Int# -> Int# -> ArrayArray# -> (# Array# a, ArrayArray# #)
+popArray mask i level init = case level ># 0# of
+    0# -> case popArray (nextMask mask) i (next level) (AA.index init ix) of
+        (# popped, newElem #) -> case andI# i mask ==# 0# of
+            0# -> (# popped, let w = NODE_WIDTH in AA.update width init ix newElem #)
+            _  -> (# popped, _init empty #)
+        where ix = index i level
+              width = NODE_WIDTH
+    _ -> (# aa2a init, _init empty #)
+{-# INLINE popArray #-}
+
+
+pop :: forall a. Vector a -> (Vector a, a)
+pop (Vector 0#   level init tail) = error "Vector.pop: empty vector"
+pop (Vector size level init tail) = let
+    tailSize  = andI# size KEY_MASK
+    initSize  = size -# tailSize
+    size'     = size -# 1#
+    width     = NODE_WIDTH
+
+    in case tailSize ==# 0# of
+        0# -> let lasti = tailSize -# 1# in 
+            (Vector size' level init (A.update width tail lasti undefElem), A.index tail lasti)
+        _  -> let
+            prevLevel = level +# KEY_BITS
+            maxSize   = uncheckedIShiftL# 1# prevLevel
+            minSize   = uncheckedIShiftL# 1# level 
+            mask      = maxSize -# 1#
+            (# popped, init' #) = popArray mask size' level init
+            in case index size' level ==# 0# of
+                0# -> (Vector size' level init' popped, A.index popped (width -# 1#))
+                _  -> (Vector size' (next level) (AA.index init' 0#) popped, A.index popped (width -# 1#))
+    
+{-# INLINE pop #-}
+
+
 --unsafeSnoc :: (# Int#, Int#, ArrayArray#, Array# a #) -> a -> (# Int#, Int#, ArrayArray#, Array# a #)
 --unsafeSnoc (# size, level, init, tail #) v = let
 --    tailSize  = andI# size KEY_MASK
 --    initSize  = size -# tailSize
 --    size'     = size +# 1#
 --    tail'     = A.unsafeUpdate tail tailSize v
-
---    unsafeSnocArr :: ArrayArray# -> Int# -> Int# -> Int# -> ArrayArray# -> ArrayArray#
---    unsafeSnocArr arr mask i level init = case level ># 0# of
---        1# -> case andI# i mask ==# 0# of 
---            0# -> AA.unsafeModify' init (index i level) (unsafeSnocArr arr (nextMask mask) i (next level))
---            _  -> init1AA (unsafeSnocArr arr (nextMask mask) i (next level) (AA.new NODE_WIDTH))
---        _ -> arr
 
 --    in case tailSize ==# KEY_MASK of
 --        0# ->  (# size', level, init, tail' #)
@@ -210,7 +260,12 @@ snoc (Vector size level init tail) v = let
 --    (# size, level, init, tail #) -> Vector size level init tail
 --    where go acc (x:xs) = go (unsafeSnoc acc x) xs
 --          go acc []     = acc 
---{-# INLINE fromList #-}
+--{-# NOINLINE fromList #-}
+
+
+
+fromList :: [a] -> Vector a
+fromList = Data.List.foldl' snoc empty
 
 foldr :: forall a b. (a -> b -> b) -> b -> Vector a -> b 
 foldr f z (Vector size level arr tail) = case initSize ==# 0# of
@@ -384,10 +439,6 @@ toList = Vector.foldr (:) []
 
 
 -- Internals -----------------------------------------------------------------
-
-maxSize :: Int# -> Int#
-maxSize level = uncheckedIShiftL# 1# (level +# KEY_BITS)
-{-# INLINE maxSize #-}
 
 next :: Int# -> Int#
 next level = level -# KEY_BITS

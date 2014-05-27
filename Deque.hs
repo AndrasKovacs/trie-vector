@@ -79,10 +79,6 @@ foldr :: (a -> b -> b) -> b -> Deque a -> b
 foldr f z (Deque prefix suffix) = V.rfoldr f (V.foldr f z suffix) prefix
 {-# INLINE foldr #-}
 
-foldl :: (b -> a -> b) -> b -> Deque a -> b
-foldl f z (Deque prefix suffix) = V.foldl f (V.rfoldl f z prefix) suffix
-{-# INLINE foldl #-}
-
 foldl' :: (b -> a -> b) -> b -> Deque a -> b
 foldl' f z (Deque prefix suffix) = V.foldl' f (V.rfoldl' f z prefix) suffix
 {-# INLINE foldl' #-}
