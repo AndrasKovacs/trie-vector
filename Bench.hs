@@ -150,7 +150,7 @@ main = do
         --bench "snoc_a16_1m  " $ whnf (a16snoc a16_1m   ) r1m  ,
         --bench "snoc_a16_10m " $ whnf (a16snoc a16_10m  ) r10m ,
 
-        bench "append_a16"  $ whnf (Vec.append a16_10m) a16_10m
+        bench "append_a16"  $ whnf (Vec.append a16_1m) a16_1m
 
         --bench "snoc_deq_1k "  $ whnf (deqsnoc deq1k   ) r1k  ,
         --bench "snoc_deq_10k " $ whnf (deqsnoc deq10k  ) r10k ,

@@ -80,8 +80,12 @@ foldr f z (Deque prefix suffix) = V.rfoldr f (V.foldr f z suffix) prefix
 {-# INLINE foldr #-}
 
 foldl' :: (b -> a -> b) -> b -> Deque a -> b
-foldl' f z (Deque prefix suffix) = V.foldl' f (V.rfoldl' f z prefix) suffix
+foldl' f z (Deque prefix suffix) = V.foldl' f z suffix
 {-# INLINE foldl' #-}
+
+rfoldl' :: (b -> a -> b) -> b -> Deque a -> b
+rfoldl' f z (Deque prefix suffix) = V.foldl' f (V.rfoldl' f z suffix) prefix
+{-# INLINE rfoldl' #-}
 
 empty :: Deque a 
 empty = Deque V.empty V.empty
@@ -109,6 +113,15 @@ toList = Deque.foldr (:) []
 
 fromList :: [a] -> Deque a
 fromList xs = Deque V.empty (Data.List.foldl' (V.snoc) V.empty xs)
+{-# INLINE fromList #-}
+
+append :: Deque a -> Deque a -> Deque a
+append a b 
+    | Deque.length a < Deque.length b = Deque.rfoldl' (flip cons) b a
+    | otherwise = Deque.foldl' snoc a b 
+{-# INLINE append #-}
+
+
 
 
 main = do

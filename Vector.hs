@@ -26,6 +26,7 @@ module Vector (
     , toList
     , fromList 
     , pop
+    , append'
 
     ) where
 
@@ -76,9 +77,14 @@ instance T.Traversable Vector where
     traverse f (Vector s l arr tail) = error "TODO: not implemented"
 
 
+append' :: Show a => Vector a -> Vector a -> Vector a
+append' a b = Vector.foldl' snoc a b 
+{-# INLINE append' #-}
 
 append :: Show a => Vector a -> Vector a -> Vector a
-append a b = Vector.foldl' snoc a b 
+append a b = Vector.foldl' go (copyEdge a) b where
+    go (Vector s l i t) x = case unsafeSnoc (# s, l, i, t #) x of
+        (# s, l, i, t #) -> Vector s l i t 
 {-# INLINE append #-}
 
 
@@ -210,6 +216,35 @@ pop (Vector size level init tail) = let
 {-# INLINE pop #-}
 
 
+unsafeSnoc :: (# Int#, Int#, ArrayArray#, Array# a #) -> a -> (# Int#, Int#, ArrayArray#, Array# a #)
+unsafeSnoc (# size, level, init, tail #) v = let
+    tailSize  = andI# size KEY_MASK
+    initSize  = size -# tailSize
+    size'     = size +# 1#
+    tail'     = A.unsafeUpdate tail tailSize v
+
+    in case tailSize ==# KEY_MASK of
+        0# ->  (# size', level, init, tail' #)
+        _  -> let
+            mask      = maxSize -# 1#
+            prevLevel = level +# KEY_BITS
+            maxSize   = uncheckedIShiftL# 1# prevLevel
+            init'     = unsafeSnocArr (a2aa tail') mask initSize level init
+            in case initSize ==# maxSize of
+                0# -> (# size', level, init', A.new NODE_WIDTH undefElem #)
+                _  -> (# size', prevLevel, init2AA init init', A.new NODE_WIDTH undefElem #)
+{-# INLINE unsafeSnoc #-}
+
+
+-- NOTE : this implementation below isn't correct, because the new arrays can get CSE-d out. 
+--fromList :: [a] -> Vector a
+--fromList xs = case go (# 0#, 0#, AA.new NODE_WIDTH, A.new NODE_WIDTH undefElem #) xs of
+--    (# size, level, init, tail #) -> Vector size level init tail
+--    where go acc (x:xs) = go (unsafeSnoc acc x) xs
+--          go acc []     = acc 
+--{-# NOINLINE fromList #-}
+
+
 
 fromList :: [a] -> Vector a
 fromList = Data.List.foldl' snoc empty
@@ -269,7 +304,7 @@ foldl' f z (Vector size level init tail) = case initSize ==# 0# of
 
         notfull :: Int# -> Int# -> ArrayArray# -> b -> b 
         notfull lasti level arr z = case level ># 0# of
-            1# -> AA.foldl' lasti' (full level') (notfull lasti level' (AA.index arr lasti') z) arr
+            1# -> notfull lasti level' (AA.index arr lasti') (AA.foldl' lasti' (full level') z arr)
             _  -> A.foldl' width f z (aa2a arr)
             where lasti' = index lasti level
                   level' = next level
@@ -284,7 +319,7 @@ foldl' f z (Vector size level init tail) = case initSize ==# 0# of
 
 rfoldl' :: forall a b. (b -> a -> b) -> b -> Vector a -> b 
 rfoldl' f z (Vector size level init tail) = case initSize ==# 0# of
-    0# -> A.rfoldl' tailSize f (notfull (initSize -# 1#) level init z) tail  
+    0# -> notfull (initSize -# 1#) level init (A.rfoldl' tailSize f z tail)  
     _  -> A.rfoldl' tailSize f z tail 
     where
         tailSize = andI# size KEY_MASK
@@ -382,6 +417,7 @@ length (Vector size _ _ _) = I# size
 toList :: Vector a -> [a]
 toList = Vector.foldr (:) []
 {-# INLINE toList #-}
+
 
 
 -- Internals -----------------------------------------------------------------
