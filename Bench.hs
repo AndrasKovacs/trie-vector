@@ -86,11 +86,11 @@ main = do
         --au_1m   = aun 1000000
         --au_10m  = aun 10000000
 
-        !a16_1k   = a16n 1000
-        !a16_10k  = a16n 10000
-        !a16_100k = a16n 100000
-        !a16_1m   = a16n 1000000
-        !a16_10m  = a16n 10000000
+        --a16_1k   = a16n 1000
+        --a16_10k  = a16n 10000
+        --a16_100k = a16n 100000
+        --a16_1m   = a16n 1000000
+        --a16_10m  = a16n 10000000
 
         --v1k   = V.fromList [0..1000 ::Int]
         --v10k  = V.fromList [0..10000 ::Int]
@@ -104,11 +104,11 @@ main = do
         --seq1m   = Seq.fromList [0..1000000 ::Int]
         --seq10m  = Seq.fromList [0..10000000 ::Int]
 
-        --deq1k   = Deque.fromList [0..1000 :: Int]
-        --deq10k  = Deque.fromList [0..10000 ::Int]
-        --deq100k = Deque.fromList [0..100000 ::Int]
-        --deq1m   = Deque.fromList [0..1000000 ::Int]
-        --deq10m  = Deque.fromList [0..10000000 ::Int]
+        !deq1k   = Deque.fromList [0..1000 :: Int]
+        !deq10k  = Deque.fromList [0..10000 ::Int]
+        !deq100k = Deque.fromList [0..100000 ::Int]
+        !deq1m   = Deque.fromList [0..1000000 ::Int]
+        !deq10m  = Deque.fromList [0..10000000 ::Int]
 
         --im1k    = IM.fromList $ zip [0..1000     :: Int] [0..1000     :: Int]
         --im10k   = IM.fromList $ zip [0..10000    :: Int] [0..10000    :: Int]
@@ -150,7 +150,7 @@ main = do
         --bench "snoc_a16_1m  " $ whnf (a16snoc a16_1m   ) r1m  ,
         --bench "snoc_a16_10m " $ whnf (a16snoc a16_10m  ) r10m ,
 
-        bench "append_a16"  $ whnf (Vec.append a16_1m) a16_1m
+        bench "append_deq"  $ whnf (foldl Deque.safeAppend Deque.empty) (replicate 10 deq100k)
 
         --bench "snoc_deq_1k "  $ whnf (deqsnoc deq1k   ) r1k  ,
         --bench "snoc_deq_10k " $ whnf (deqsnoc deq10k  ) r10k ,

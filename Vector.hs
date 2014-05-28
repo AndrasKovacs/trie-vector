@@ -7,6 +7,7 @@ module Vector (
     , (|>)
     , (!#)
     , append
+    , rappend
     , unsafeIndex#
     , (!)
     , unsafeIndex
@@ -26,8 +27,7 @@ module Vector (
     , toList
     , fromList 
     , pop
-    , append'
-
+ 
     ) where
 
 import qualified Data.Foldable as F
@@ -77,15 +77,25 @@ instance T.Traversable Vector where
     traverse f (Vector s l arr tail) = error "TODO: not implemented"
 
 
-append' :: Show a => Vector a -> Vector a -> Vector a
-append' a b = Vector.foldl' snoc a b 
-{-# INLINE append' #-}
+safeAppend :: Vector a -> Vector a -> Vector a
+safeAppend a b = Vector.foldl' snoc a b 
+{-# INLINE safeAppend #-}
 
-append :: Show a => Vector a -> Vector a -> Vector a
+safeRappend :: Vector a -> Vector a -> Vector a
+safeRappend a b = Vector.rfoldl' snoc a b 
+{-# INLINE safeRappend #-}
+
+append :: Vector a -> Vector a -> Vector a
 append a b = Vector.foldl' go (copyEdge a) b where
     go (Vector s l i t) x = case unsafeSnoc (# s, l, i, t #) x of
         (# s, l, i, t #) -> Vector s l i t 
 {-# INLINE append #-}
+
+rappend :: Vector a -> Vector a -> Vector a
+rappend a b = Vector.rfoldl' go (copyEdge a) b where
+    go (Vector s l i t) x = case unsafeSnoc (# s, l, i, t #) x of
+        (# s, l, i, t #) -> Vector s l i t 
+{-# INLINE rappend #-}
 
 
 copyEdge :: Vector a -> Vector a
@@ -282,7 +292,7 @@ rfoldr f z (Vector size level init tail) = case initSize ==# 0# of
 
         notfull :: Int# -> Int# -> ArrayArray# -> b -> b 
         notfull lasti level arr z = case level ># 0# of
-            1# -> AA.rfoldr lasti' (full level') (notfull lasti level' (AA.index arr lasti') z) arr
+            1# -> notfull lasti level' (AA.index arr lasti') (AA.rfoldr lasti' (full level') z arr)
             _  -> A.rfoldr NODE_WIDTH f z (aa2a arr)
             where lasti' = index lasti level
                   level' = next level

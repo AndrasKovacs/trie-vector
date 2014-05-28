@@ -8,6 +8,7 @@ import GHC.Types
 import qualified Vector as V
 import qualified Data.Foldable as F
 import Data.List
+import Debug.Trace
 
 #define NODE_WIDTH 16#
 #define KEY_BITS 4#
@@ -112,16 +113,21 @@ toList = Deque.foldr (:) []
 {-# INLINE toList #-}
 
 fromList :: [a] -> Deque a
-fromList xs = Deque V.empty (Data.List.foldl' (V.snoc) V.empty xs)
+fromList xs = Deque V.empty (V.fromList xs)
 {-# INLINE fromList #-}
 
-append :: Deque a -> Deque a -> Deque a
-append a b 
+safeAppend :: Show a => Deque a -> Deque a -> Deque a
+safeAppend a@(Deque a1 a2) b@(Deque b1 b2)
     | Deque.length a < Deque.length b = Deque.rfoldl' (flip cons) b a
     | otherwise = Deque.foldl' snoc a b 
+{-# INLINE safeAppend #-}
+
+-- There is one needless edge copying here with the two appends. 
+append :: Deque a -> Deque a -> Deque a
+append(Deque a b) (Deque c d) = case (V._size a +# V._size b) <# (V._size c +# V._size d) of
+    1# -> Deque (V.append (V.rappend c b) a) d
+    _  -> Deque a (V.append (V.rappend b c) d)
 {-# INLINE append #-}
-
-
 
 
 main = do
