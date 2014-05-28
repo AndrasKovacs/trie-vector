@@ -25,6 +25,7 @@ module Vector (
     , Vector.length
     , toList
     , fromList 
+    , pop
 
     ) where
 
@@ -96,29 +97,6 @@ copyEdge (Vector size level init tail) = let
         0# -> Vector size level (a2aa (cloneArray# (aa2a init) 0# width)) tail'
         _  -> Vector size level (go (initSize -# 1#) level init) tail'
 {-# INLINE copyEdge #-}
-
-
-
-
---getNewLevel :: Int# -> Int# -> Int#
---getNewLevel size level = case size <# maxSize level of
---    1# -> level
---    _  -> getNewLevel size (level +# KEY_BITS) 
-
---raise :: ArrayArray# -> Int# -> Int# -> ArrayArray#
---raise array level level' = case level <# level' of
---    1# -> init1AA (raise array (level +# KEY_BITS) level')
---    _  -> array
-
---append :: Vector a -> Vector a -> Vector a
---append (Vector size level init tail) (Vector size' level' init' tail') = let
---    tailSize           = andI# size KEY_MASK
---    initSize           = size -# tailSize
---    newSize            = size +# size'
---    newLevel           = getNewLevel newSize level
---    raisedInit         = raise init level newLevel
---    raisedInitWithTail = snocArr tail (maxSize newLevel -# 1#) newLevel raisedInit
-
 
 
 (|>) :: Vector a -> a -> Vector a
@@ -202,7 +180,7 @@ snoc (Vector size level init tail) v = let
 
 popArray :: Int# -> Int# -> Int# -> ArrayArray# -> (# Array# a, ArrayArray# #)
 popArray mask i level init = case level ># 0# of
-    0# -> case popArray (nextMask mask) i (next level) (AA.index init ix) of
+    1# -> case popArray (nextMask mask) i (next level) (AA.index init ix) of
         (# popped, newElem #) -> case andI# i mask ==# 0# of
             0# -> (# popped, let w = NODE_WIDTH in AA.update width init ix newElem #)
             _  -> (# popped, _init empty #)
@@ -210,7 +188,6 @@ popArray mask i level init = case level ># 0# of
               width = NODE_WIDTH
     _ -> (# aa2a init, _init empty #)
 {-# INLINE popArray #-}
-
 
 pop :: forall a. Vector a -> (Vector a, a)
 pop (Vector 0#   level init tail) = error "Vector.pop: empty vector"
@@ -225,42 +202,12 @@ pop (Vector size level init tail) = let
             (Vector size' level init (A.update width tail lasti undefElem), A.index tail lasti)
         _  -> let
             prevLevel = level +# KEY_BITS
-            maxSize   = uncheckedIShiftL# 1# prevLevel
-            minSize   = uncheckedIShiftL# 1# level 
-            mask      = maxSize -# 1#
+            mask      = (uncheckedIShiftL# 1# prevLevel) -# 1#
             (# popped, init' #) = popArray mask size' level init
             in case index size' level ==# 0# of
                 0# -> (Vector size' level init' popped, A.index popped (width -# 1#))
                 _  -> (Vector size' (next level) (AA.index init' 0#) popped, A.index popped (width -# 1#))
-    
 {-# INLINE pop #-}
-
-
---unsafeSnoc :: (# Int#, Int#, ArrayArray#, Array# a #) -> a -> (# Int#, Int#, ArrayArray#, Array# a #)
---unsafeSnoc (# size, level, init, tail #) v = let
---    tailSize  = andI# size KEY_MASK
---    initSize  = size -# tailSize
---    size'     = size +# 1#
---    tail'     = A.unsafeUpdate tail tailSize v
-
---    in case tailSize ==# KEY_MASK of
---        0# ->  (# size', level, init, tail' #)
---        _  -> let
---            mask      = maxSize -# 1#
---            prevLevel = level +# KEY_BITS
---            maxSize   = uncheckedIShiftL# 1# prevLevel
---            init'     = unsafeSnocArr (a2aa tail') mask initSize level init
---            in case initSize ==# maxSize of
---                0# -> (# size', level, init', A.new NODE_WIDTH undefElem #)
---                _  -> (# size', prevLevel, init2AA init init', A.new NODE_WIDTH undefElem #)
---{-# INLINE unsafeSnoc #-}
-
---fromList :: [a] -> Vector a
---fromList xs = case go (# 0#, 0#, AA.new NODE_WIDTH, A.new NODE_WIDTH undefElem #) xs of
---    (# size, level, init, tail #) -> Vector size level init tail
---    where go acc (x:xs) = go (unsafeSnoc acc x) xs
---          go acc []     = acc 
---{-# NOINLINE fromList #-}
 
 
 
@@ -435,7 +382,6 @@ length (Vector size _ _ _) = I# size
 toList :: Vector a -> [a]
 toList = Vector.foldr (:) []
 {-# INLINE toList #-}
-
 
 
 -- Internals -----------------------------------------------------------------
