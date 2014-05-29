@@ -6,8 +6,10 @@ module Vector (
       Vector(..)
     , (|>)
     , (!#)
-    , append
-    , rappend
+    , safeAppend
+    , safeRappend
+    --, append
+    --, rappend
     , unsafeIndex#
     , (!)
     , unsafeIndex
@@ -85,17 +87,17 @@ safeRappend :: Vector a -> Vector a -> Vector a
 safeRappend a b = Vector.rfoldl' snoc a b 
 {-# INLINE safeRappend #-}
 
-append :: Vector a -> Vector a -> Vector a
-append a b = Vector.foldl' go (copyEdge a) b where
-    go (Vector s l i t) x = case unsafeSnoc (# s, l, i, t #) x of
-        (# s, l, i, t #) -> Vector s l i t 
-{-# INLINE append #-}
+--append :: Vector a -> Vector a -> Vector a
+--append a b = Vector.foldl' go (copyEdge a) b where
+--    go (Vector s l i t) x = case unsafeSnoc (# s, l, i, t #) x of
+--        (# s, l, i, t #) -> Vector s l i t 
+--{-# INLINE append #-}
 
-rappend :: Vector a -> Vector a -> Vector a
-rappend a b = Vector.rfoldl' go (copyEdge a) b where
-    go (Vector s l i t) x = case unsafeSnoc (# s, l, i, t #) x of
-        (# s, l, i, t #) -> Vector s l i t 
-{-# INLINE rappend #-}
+--rappend :: Vector a -> Vector a -> Vector a
+--rappend a b = Vector.rfoldl' go (copyEdge a) b where
+--    go (Vector s l i t) x = case unsafeSnoc (# s, l, i, t #) x of
+--        (# s, l, i, t #) -> Vector s l i t 
+--{-# INLINE rappend #-}
 
 
 copyEdge :: Vector a -> Vector a
@@ -226,24 +228,24 @@ pop (Vector size level init tail) = let
 {-# INLINE pop #-}
 
 
-unsafeSnoc :: (# Int#, Int#, ArrayArray#, Array# a #) -> a -> (# Int#, Int#, ArrayArray#, Array# a #)
-unsafeSnoc (# size, level, init, tail #) v = let
-    tailSize  = andI# size KEY_MASK
-    initSize  = size -# tailSize
-    size'     = size +# 1#
-    tail'     = A.unsafeUpdate tail tailSize v
+--unsafeSnoc :: (# Int#, Int#, ArrayArray#, Array# a #) -> a -> (# Int#, Int#, ArrayArray#, Array# a #)
+--unsafeSnoc (# size, level, init, tail #) v = let
+--    tailSize  = andI# size KEY_MASK
+--    initSize  = size -# tailSize
+--    size'     = size +# 1#
+--    tail'     = A.unsafeUpdate tail tailSize v
 
-    in case tailSize ==# KEY_MASK of
-        0# ->  (# size', level, init, tail' #)
-        _  -> let
-            mask      = maxSize -# 1#
-            prevLevel = level +# KEY_BITS
-            maxSize   = uncheckedIShiftL# 1# prevLevel
-            init'     = unsafeSnocArr (a2aa tail') mask initSize level init
-            in case initSize ==# maxSize of
-                0# -> (# size', level, init', A.new NODE_WIDTH undefElem #)
-                _  -> (# size', prevLevel, init2AA init init', A.new NODE_WIDTH undefElem #)
-{-# INLINE unsafeSnoc #-}
+--    in case tailSize ==# KEY_MASK of
+--        0# ->  (# size', level, init, tail' #)
+--        _  -> let
+--            mask      = maxSize -# 1#
+--            prevLevel = level +# KEY_BITS
+--            maxSize   = uncheckedIShiftL# 1# prevLevel
+--            init'     = unsafeSnocArr (a2aa tail') mask initSize level init
+--            in case initSize ==# maxSize of
+--                0# -> (# size', level, init', A.new NODE_WIDTH undefElem #)
+--                _  -> (# size', prevLevel, init2AA init init', A.new NODE_WIDTH undefElem #)
+--{-# INLINE unsafeSnoc #-}
 
 
 -- NOTE : this implementation below isn't correct, because the new arrays can get CSE-d out. 
