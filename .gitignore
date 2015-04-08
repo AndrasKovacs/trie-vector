@@ -1,4 +1,7 @@
 *.hi
 *.o
 *.prof
+*~
 Bench
+dist
+/.cabal-sandbox
