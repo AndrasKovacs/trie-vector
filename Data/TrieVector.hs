@@ -73,7 +73,7 @@ instance F.Foldable Vector where
     {-# INLINE foldl #-}
     foldl' = Data.TrieVector.foldl'
     {-# INLINE foldl' #-}
-    length = length
+    length = Data.TrieVector.length
     {-# INLINE length #-}
     null v = Data.TrieVector.length v == 0
     {-# INLINE null #-}
