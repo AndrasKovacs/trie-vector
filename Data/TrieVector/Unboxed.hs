@@ -13,6 +13,7 @@ module Data.TrieVector.Unboxed (
     , (!)
     , unsafeIndex
     , snoc
+    , pop
     , Data.TrieVector.Unboxed.foldr
     , Data.TrieVector.Unboxed.foldl'
     , rfoldr
@@ -128,6 +129,37 @@ snoc (Vector size level init tail) v = let
               _  -> Vector size' prevLevel (init2AA init init') (_tail emptyVec)
         _ -> Vector size' level init tail'
 {-# INLINABLE snoc #-}
+
+
+pop :: forall a. Prim a => Vector a -> (Vector a, a)
+pop (Vector 0#   _     _    _   ) = popError
+pop (Vector size level init tail) = let
+
+    popArray :: Prim a => Int# -> Int# -> Int# -> Vector a -> AArray -> (# ByteArray, AArray #)
+    popArray mask i level empty init = case level of
+        0# -> (# aa2ba init, _init empty #)  
+        _  -> case popArray (nextMask mask) i (next level) empty (AA.index init ix) of
+            (# popped, newElem #) -> case andI# i mask of
+                0# -> (# popped, _init empty #)          
+                _  -> (# popped, AA.update width init ix newElem #)
+            where ix = index i level
+                  width = NODE_WIDTH
+              
+    tailSize  = andI# size KEY_MASK
+    initSize  = size -# tailSize
+    size'     = size -# 1#
+    width     = NODE_WIDTH
+
+    in case tailSize of
+        0# -> let
+          prevLevel = level +# KEY_BITS
+          mask      = (uncheckedIShiftL# 1# prevLevel) -# 1#
+          (# popped, init' #) = popArray mask size' level (empty :: Vector a) init
+          in case index size' level of
+              0# -> (Vector size' (next level) (AA.index init' 0#) popped, A.index popped (width -# 1#))          
+              _  -> (Vector size' level init' popped, A.index popped (width -# 1#))
+        _ -> (Vector size' level init tail, A.index tail (tailSize -# 1#))
+{-# INLINABLE pop #-}
 
 
 fromList :: Prim a => [a] -> Vector a

@@ -95,69 +95,69 @@ main = defaultMain $ localOption (QuickCheckMaxSize 1000) $
          --     (a1 : a2 : replicate ((I# size) - 2) def) == A.toList (A.init2 size a1 a2 def)
          -- ],
 
-         -- testGroup "Vector" [
+         testGroup "Vector" [
 
-         --     QC.testProperty "length/fromList" $
-         --       \(xs :: [Int]) -> length xs == V.length (V.fromList xs)
+             QC.testProperty "length/fromList" $
+               \(xs :: [Int]) -> length xs == V.length (V.fromList xs)
          
-         --   , QC.testProperty "toList/fromList" $ 
-         --       \(xs :: [Int]) -> xs == V.toList (V.fromList xs)
+           , QC.testProperty "toList/fromList" $ 
+               \(xs :: [Int]) -> xs == V.toList (V.fromList xs)
                                 
-         --   , QC.testProperty "snoc" $
-         --       \(xs :: [Int]) (x :: Int) ->
-         --         (xs ++ [x]) == V.toList (V.fromList xs V.|> x)
+           , QC.testProperty "snoc" $
+               \(xs :: [Int]) (x :: Int) ->
+                 (xs ++ [x]) == V.toList (V.fromList xs V.|> x)
                 
-         --   , QC.testProperty "append" $
-         --       \(xs :: [Int]) (ys :: [Int]) ->
-         --         (xs ++ ys) == V.toList (V.safeAppend (V.fromList xs) (V.fromList ys))
+           , QC.testProperty "append" $
+               \(xs :: [Int]) (ys :: [Int]) ->
+                 (xs ++ ys) == V.toList (V.safeAppend (V.fromList xs) (V.fromList ys))
                 
-         --   , QC.testProperty "!" $
-         --       \(xs :: [Int]) -> not (null xs) ==>
-         --          let vec = V.fromList xs in
-         --          forAll (choose (0, length xs - 1)) $ \i ->
-         --          (xs !! i) == (vec V.! i)
+           , QC.testProperty "!" $
+               \(xs :: [Int]) -> not (null xs) ==>
+                  let vec = V.fromList xs in
+                  forAll (choose (0, length xs - 1)) $ \i ->
+                  (xs !! i) == (vec V.! i)
                                                             
-         --   , QC.testProperty "pop" $
-         --       \(xs :: [Int]) -> not (null xs) ==>
-         --          ((init xs, last xs) == over _1 V.toList (V.pop (V.fromList xs))) 
+           , QC.testProperty "pop" $
+               \(xs :: [Int]) -> not (null xs) ==>
+                  ((init xs, last xs) == over _1 V.toList (V.pop (V.fromList xs))) 
          
-         --   , QC.testProperty "map" $
-         --       \(xs :: [Int]) (f :: Fun Int Int) ->
-         --         map (apply f) xs == V.toList (V.map (apply f) (V.fromList xs))
+           , QC.testProperty "map" $
+               \(xs :: [Int]) (f :: Fun Int Int) ->
+                 map (apply f) xs == V.toList (V.map (apply f) (V.fromList xs))
                 
-         --   , QC.testProperty "foldr" $
-         --       \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
-         --         foldr (apply2 f) z xs == (V.foldr (apply2 f) z (V.fromList xs))
+           , QC.testProperty "foldr" $
+               \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
+                 foldr (apply2 f) z xs == (V.foldr (apply2 f) z (V.fromList xs))
          
-         --   , QC.testProperty "rfoldr" $
-         --       \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
-         --         foldr (apply2 f) z (reverse xs) ==
-         --         (V.rfoldr (apply2 f) z (V.fromList xs))
+           , QC.testProperty "rfoldr" $
+               \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
+                 foldr (apply2 f) z (reverse xs) ==
+                 (V.rfoldr (apply2 f) z (V.fromList xs))
                 
-         --   , QC.testProperty "foldl'" $
-         --       \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
-         --         foldl (apply2 f) z xs ==
-         --         (V.foldl' (apply2 f) z (V.fromList xs))
+           , QC.testProperty "foldl'" $
+               \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
+                 foldl (apply2 f) z xs ==
+                 (V.foldl' (apply2 f) z (V.fromList xs))
                 
-         --   , QC.testProperty "rfoldl'" $
-         --       \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
-         --         foldl (apply2 f) z (reverse xs) ==
-         --         (V.rfoldl' (apply2 f) z (V.fromList xs))
+           , QC.testProperty "rfoldl'" $
+               \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
+                 foldl (apply2 f) z (reverse xs) ==
+                 (V.rfoldl' (apply2 f) z (V.fromList xs))
                 
-         --   , QC.testProperty "modify" $
-         --       \(xs :: [Int]) (f :: Fun Int Int) -> not (null xs) ==>
-         --         forAll (choose (0, length xs - 1)) $ \i ->
-         --         (xs& ix i %~ apply f) ==
-         --         (V.toList (V.modify (V.fromList xs) i (apply f)))
+           , QC.testProperty "modify" $
+               \(xs :: [Int]) (f :: Fun Int Int) -> not (null xs) ==>
+                 forAll (choose (0, length xs - 1)) $ \i ->
+                 (xs& ix i %~ apply f) ==
+                 (V.toList (V.modify (V.fromList xs) i (apply f)))
                 
-         --   , localOption (QuickCheckMaxSize 200) $ QC.testProperty "concat left" $
-         --       \(xss :: [[Int]]) ->
-         --       concat xss == V.toList (foldl' V.safeAppend V.empty (map V.fromList xss))
+           , localOption (QuickCheckMaxSize 200) $ QC.testProperty "concat left" $
+               \(xss :: [[Int]]) ->
+               concat xss == V.toList (foldl' V.safeAppend V.empty (map V.fromList xss))
                                    
-         --   , localOption (QuickCheckMaxSize 200) $ QC.testProperty "concat right" $
-         --       \(xss :: [[Int]]) ->
-         --       concat xss == V.toList (foldr V.safeAppend V.empty (map V.fromList xss))
-         --   ],
+           , localOption (QuickCheckMaxSize 200) $ QC.testProperty "concat right" $
+               \(xss :: [[Int]]) ->
+               concat xss == V.toList (foldr V.safeAppend V.empty (map V.fromList xss))
+           ],
 
          testGroup "Unboxed" [
          
@@ -166,7 +166,11 @@ main = defaultMain $ localOption (QuickCheckMaxSize 1000) $
                                 
            , QC.testProperty "snoc" $
                \(xs :: [Int]) (x :: Int) ->
-                 (xs ++ [x]) == U.toList (U.fromList xs U.|> x)                
+                 (xs ++ [x]) == U.toList (U.fromList xs U.|> x)
+
+           , QC.testProperty "pop" $
+               \(xs :: [Int]) -> not (null xs) ==>
+                  ((init xs, last xs) == over _1 U.toList (U.pop (U.fromList xs)))       
                 
            , QC.testProperty "!" $
                \(xs :: [Int]) -> not (null xs) ==>

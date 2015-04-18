@@ -45,7 +45,7 @@ test-suite tests
     ghc-prim,
     lens
 
-  ghc-options: -Wall
+  ghc-options: -Wall -O2
 
 benchmark benchmarks
   default-language: Haskell2010

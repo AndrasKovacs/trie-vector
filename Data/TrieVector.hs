@@ -154,14 +154,14 @@ snoc (Vector size level init tail) v = let
 {-# INLINE snoc #-}
 
 popArray :: Int# -> Int# -> Int# -> AArray -> (# Array a, AArray #)
-popArray mask i level init = case level ># 0# of
-    1# -> case popArray (nextMask mask) i (next level) (AA.index init ix) of
-        (# popped, newElem #) -> case andI# i mask ==# 0# of
-            0# -> (# popped, let w = NODE_WIDTH in AA.update width init ix newElem #)
-            _  -> (# popped, _init empty #)
+popArray mask i level init = case level of
+    0# -> (# aa2a init, _init empty #)  
+    _  -> case popArray (nextMask mask) i (next level) (AA.index init ix) of
+        (# popped, newElem #) -> case andI# i mask of
+            0# -> (# popped, _init empty #)          
+            _  -> (# popped, AA.update width init ix newElem #)
         where ix = index i level
               width = NODE_WIDTH
-    _ -> (# aa2a init, _init empty #)
 {-# INLINE popArray #-}
 
 pop :: forall a. Vector a -> (Vector a, a)
@@ -177,9 +177,9 @@ pop (Vector size level init tail) = let
           prevLevel = level +# KEY_BITS
           mask      = (uncheckedIShiftL# 1# prevLevel) -# 1#
           (# popped, init' #) = popArray mask size' level init
-          in case index size' level ==# 0# of
-              0# -> (Vector size' level init' popped, A.index popped (width -# 1#))
-              _  -> (Vector size' (next level) (AA.index init' 0#) popped, A.index popped (width -# 1#))
+          in case index size' level of
+              0# -> (Vector size' (next level) (AA.index init' 0#) popped, A.index popped (width -# 1#))          
+              _  -> (Vector size' level init' popped, A.index popped (width -# 1#))
         _ -> let lasti = tailSize -# 1# in 
           (Vector size' level init (A.update width tail lasti undefElem), A.index tail lasti)
 {-# INLINE pop #-}
