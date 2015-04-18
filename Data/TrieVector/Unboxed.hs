@@ -41,6 +41,7 @@ import Data.TrieVector.ArrayArray (AArray)
 import qualified Data.TrieVector.ArrayArray as AA
 
 import Data.List
+
 import Data.Word
 import Data.Int
 
@@ -68,17 +69,15 @@ infixl 5 |>
 (!) v (I# i) = v !# i
 {-# INLINABLE (!) #-}
 
-indexAA :: Prim a => Int# -> Int# -> AArray -> a
-indexAA i 0#    init = A.index (aa2ba init) (index i 0#)
-indexAA i level init = indexAA i (next level) (AA.index init (index i level))
-
 (!#) :: Prim a => Vector a -> Int# -> a
 (!#) (Vector size level init tail) i = case i >=# 0# of 
     1# -> let
+        go i 0#    init = A.index (aa2ba init) (index i 0#)
+        go i level init = go i (next level) (AA.index init (index i level))        
         tailSize = andI# size KEY_MASK
         initSize = size -# tailSize
         in case i <# initSize of
-            1# -> indexAA i level init
+            1# -> go i level init
             _  -> case i <# size of
                 1# -> A.index tail (i -# initSize)
                 _  -> boundsError
@@ -91,22 +90,26 @@ unsafeIndex v (I# i) = unsafeIndex# v i
 
 unsafeIndex# :: Prim a => Vector a -> Int# -> a
 unsafeIndex# (Vector size level init tail) i = let
+    go i 0#    init = A.index (aa2ba init) (index i 0#)
+    go i level init = go i (next level) (AA.index init (index i level))
     tailSize = andI# size KEY_MASK
-    initSize = size -# tailSize
+    initSize = size -# tailSize    
     in case i <# initSize of
-        1# -> indexAA i level init
+        1# -> go i level init
         _  -> A.index tail (i -# initSize)
 {-# INLINABLE unsafeIndex# #-}
 
-snocAA :: AArray -> Int# -> Int# -> Int# -> Vector a -> AArray -> AArray
-snocAA arr mask i 0#    empty init = arr
-snocAA arr mask i level empty init = case andI# i mask of
-  0# -> init1AA (snocAA arr (nextMask mask) i (next level) empty (ba2aa (_tail empty)))
-  _  -> AA.modify NODE_WIDTH init
-    (index i level) (snocAA arr (nextMask mask) i (next level) empty)
 
 snoc :: forall a. Prim a => Vector a -> a -> Vector a
 snoc (Vector size level init tail) v = let
+
+    snocAA :: AArray -> Int# -> Int# -> Int# -> Vector a -> AArray -> AArray
+    snocAA arr mask i 0#    empty init = arr
+    snocAA arr mask i level empty init = case andI# i mask of
+      0# -> init1AA (snocAA arr (nextMask mask) i (next level) empty (ba2aa (_tail empty)))
+      _  -> AA.modify NODE_WIDTH init
+        (index i level) (snocAA arr (nextMask mask) i (next level) empty)
+    
     tailSize  = andI# size KEY_MASK
     initSize  = size -# tailSize
     size'     = size +# 1#
@@ -249,13 +252,6 @@ map f (Vector size level init tail) = Vector size level init' tail' where
         where width = NODE_WIDTH
 {-# INLINABLE map #-}
 
-modifyAA :: Prim a => Int# -> Int# -> (a -> a) -> AArray -> AArray
-modifyAA i level f arr = case level of
-  0# -> ba2aa (A.modify' width (aa2ba arr) (index i 0#) f)
-  _  -> AA.modify width arr (index i level) (modifyAA i (next level) f)
-  where width = NODE_WIDTH
-{-# INLINABLE modifyAA #-}
-
 modify# :: forall a. Prim a => Vector a -> Int# -> (a -> a) -> Vector a 
 modify# (Vector size level init tail) i f = case i >=# 0# of 
     1# -> let
@@ -268,13 +264,24 @@ modify# (Vector size level init tail) i f = case i >=# 0# of
                 1# -> Vector size level init (A.modify' width tail (i -# initSize) f)
                 _  -> boundsError
     _  -> boundsError
+    where
+      modifyAA i level f arr = case level of
+        0# -> ba2aa (A.modify' width (aa2ba arr) (index i 0#) f)
+        _  -> AA.modify width arr (index i level) (modifyAA i (next level) f)
+        where width = NODE_WIDTH
 {-# INLINABLE modify# #-}
 
 unsafeModify# :: forall a. Prim a => Vector a -> Int# -> (a -> a) -> Vector a 
-unsafeModify# (Vector size level init tail) i f = 
-    let tailSize = andI# size KEY_MASK
-        initSize = size -# tailSize
-        width    = NODE_WIDTH
+unsafeModify# (Vector size level init tail) i f = let
+  
+    modifyAA i level f arr = case level of
+      0# -> ba2aa (A.modify' width (aa2ba arr) (index i 0#) f)
+      _  -> AA.modify width arr (index i level) (modifyAA i (next level) f)
+        where width = NODE_WIDTH
+              
+    tailSize = andI# size KEY_MASK
+    initSize = size -# tailSize
+    width    = NODE_WIDTH
     in case i <# initSize of
         1# -> Vector size level (modifyAA i level f init) tail
         _  -> Vector size level init (A.modify' width tail (i -# initSize) f)
