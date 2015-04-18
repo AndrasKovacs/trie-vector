@@ -65,14 +65,7 @@ main = defaultMainWith config [
      --    bench "1M"    $ whnf (benchRandIx ((TV.!) tv1M   )) r1M
      --    ]
      -- ],
-  
-     -- bgroup "index'" [
-     --    bench "10"    $ whnf (((TV.!) tv10   )) 5,
-     --    bench "100"   $ whnf (((TV.!) tv100  )) 5,
-     --    bench "10000" $ whnf (((TV.!) tv10000)) 5,
-     --    bench "1M"    $ whnf (((TV.!) tv1M   )) 5
-     --    ]
-     -- ],  
+    
      
      -- bgroup "unsafeIndex" [
      --    bench "10"    $ whnf (benchRandIx (TV.unsafeIndex tv10   )) r10,
@@ -106,20 +99,20 @@ main = defaultMainWith config [
      --    ]
      -- ],  
 
-  -- bgroup "Unboxed" [
-  --    bgroup "unsafeIndex" [
-  --       bench "10"    $ whnf (benchRandIx (TUV.unsafeIndex tuv10   )) r10,
-  --       bench "100"   $ whnf (benchRandIx (TUV.unsafeIndex tuv100  )) r100,
-  --       bench "10000" $ whnf (benchRandIx (TUV.unsafeIndex tuv10000)) r10000,
-  --       bench "1M"    $ whnf (benchRandIx (TUV.unsafeIndex tuv1M   )) r1M
-  --       ],
-  --    bgroup "unsafeModify" [
-  --       bench "10"    $ whnf (benchRandIx (flip (TUV.unsafeModify tuv10   ) (const 0) )) r10,
-  --       bench "100"   $ whnf (benchRandIx (flip (TUV.unsafeModify tuv100  ) (const 0) )) r100,
-  --       bench "10000" $ whnf (benchRandIx (flip (TUV.unsafeModify tuv10000) (const 0) )) r10000,
-  --       bench "1M"    $ whnf (benchRandIx (flip (TUV.unsafeModify tuv1M   ) (const 0) )) r1M
-  --       ]         
-  --    ],
+  bgroup "Unboxed" [
+     bgroup "unsafeIndex" [
+        bench "10"    $ whnf (benchRandIx (TUV.unsafeIndex tuv10   )) r10,
+        bench "100"   $ whnf (benchRandIx (TUV.unsafeIndex tuv100  )) r100,
+        bench "10000" $ whnf (benchRandIx (TUV.unsafeIndex tuv10000)) r10000,
+        bench "1M"    $ whnf (benchRandIx (TUV.unsafeIndex tuv1M   )) r1M
+        ],
+     bgroup "unsafeModify" [
+        bench "10"    $ whnf (benchRandIx (flip (TUV.unsafeModify tuv10   ) (const 0) )) r10,
+        bench "100"   $ whnf (benchRandIx (flip (TUV.unsafeModify tuv100  ) (const 0) )) r100,
+        bench "10000" $ whnf (benchRandIx (flip (TUV.unsafeModify tuv10000) (const 0) )) r10000,
+        bench "1M"    $ whnf (benchRandIx (flip (TUV.unsafeModify tuv1M   ) (const 0) )) r1M
+        ]         
+     ],
 
     bench "nop_ix" $ whnf (benchRandIx id) r100
   ]

@@ -303,7 +303,9 @@ map f (Vector size level init tail) = Vector size level init' tail' where
 
 modifyAA :: Int# -> Int# -> (a -> a) -> AArray -> AArray
 modifyAA i 0#    f arr = a2aa (A.modify NODE_WIDTH (aa2a arr) (index i 0#) f)
-modifyAA i level f arr = AA.modify NODE_WIDTH arr (index i level) (modifyAA i (next level) f)  
+modifyAA i level f arr = AA.modify NODE_WIDTH arr (index i level) (modifyAA i (next level) f)
+
+
 modify# :: forall a. Vector a -> Int# -> (a -> a) -> Vector a 
 modify# (Vector size level init tail) i f = case i >=# 0# of 
     1# -> let

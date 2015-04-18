@@ -41,6 +41,8 @@ import Data.TrieVector.ArrayArray (AArray)
 import qualified Data.TrieVector.ArrayArray as AA
 
 import Data.List
+import Data.Word
+import Data.Int
 
 #define NODE_WIDTH 16#
 #define KEY_BITS 4#
@@ -66,64 +68,62 @@ infixl 5 |>
 (!) v (I# i) = v !# i
 {-# INLINABLE (!) #-}
 
-(!#) :: forall a. Prim a => Vector a -> Int# -> a
-(!#) (Vector size level arr tail) i = case i >=# 0# of 
+indexAA :: Prim a => Int# -> Int# -> AArray -> a
+indexAA i 0#    init = A.index (aa2ba init) (index i 0#)
+indexAA i level init = indexAA i (next level) (AA.index init (index i level))
+
+(!#) :: Prim a => Vector a -> Int# -> a
+(!#) (Vector size level init tail) i = case i >=# 0# of 
     1# -> let
         tailSize = andI# size KEY_MASK
         initSize = size -# tailSize
         in case i <# initSize of
-            1# -> go i level arr
+            1# -> indexAA i level init
             _  -> case i <# size of
                 1# -> A.index tail (i -# initSize)
-                _  -> error "Vector.!: out of bounds"
-    _  -> error "Vector.!: out of bounds"
-    where go i level arr = case level ># 0# of
-            1# -> go i (next level) (AA.index arr (index i level))
-            _  -> A.index (aa2ba arr) (index i level)
-infixl 5 !
+                _  -> boundsError
+    _  -> boundsError
 {-# INLINABLE (!#) #-}
 
 unsafeIndex :: Prim a => Vector a -> Int -> a
 unsafeIndex v (I# i) = unsafeIndex# v i
 {-# INLINABLE unsafeIndex #-}
 
-unsafeIndex# :: forall a. Prim a => Vector a -> Int# -> a
-unsafeIndex# (Vector size level arr tail) i = let
+unsafeIndex# :: Prim a => Vector a -> Int# -> a
+unsafeIndex# (Vector size level init tail) i = let
     tailSize = andI# size KEY_MASK
     initSize = size -# tailSize
     in case i <# initSize of
-        1# -> go i level arr
+        1# -> indexAA i level init
         _  -> A.index tail (i -# initSize)
-    where go i level arr = case level ># 0# of
-            1# -> go i (next level) (AA.index arr (index i level))
-            _  -> A.index (aa2ba arr) (index i level)
 {-# INLINABLE unsafeIndex# #-}
+
+snocAA :: AArray -> Int# -> Int# -> Int# -> Vector a -> AArray -> AArray
+snocAA arr mask i 0#    empty init = arr
+snocAA arr mask i level empty init = case andI# i mask of
+  0# -> init1AA (snocAA arr (nextMask mask) i (next level) empty (ba2aa (_tail empty)))
+  _  -> AA.modify NODE_WIDTH init
+    (index i level) (snocAA arr (nextMask mask) i (next level) empty)
 
 snoc :: forall a. Prim a => Vector a -> a -> Vector a
 snoc (Vector size level init tail) v = let
     tailSize  = andI# size KEY_MASK
     initSize  = size -# tailSize
     size'     = size +# 1#
-    tail'     = A.update width tail tailSize v
-    width     = NODE_WIDTH
+    tail'     =
+      A.update NODE_WIDTH tail tailSize v
 
-    insertArr :: AArray -> Int# -> Int# -> Int# -> AArray -> AArray
-    insertArr arr mask i level init = case level ># 0# of
-        1# -> case andI# i mask ==# 0# of 
-            0# -> AA.modify NODE_WIDTH init (index i level) (insertArr arr (nextMask mask) i (next level))
-            _  -> init1AA (insertArr arr (nextMask mask) i (next level) (_init (empty :: Vector a)))
-        _ -> arr
-
-    in case tailSize ==# KEY_MASK of
-        0# -> Vector size' level init tail'
-        _  -> let
-            mask      = maxSize -# 1#
-            prevLevel = level +# KEY_BITS
-            maxSize   = uncheckedIShiftL# 1# prevLevel
-            init'     = insertArr (ba2aa tail') mask initSize level init
-            in case initSize ==# maxSize of
-                0# -> Vector size' level init' (_tail (empty :: Vector a))
-                _  -> Vector size' prevLevel (init2AA init init') (_tail (empty :: Vector a))
+    in case tailSize of
+        KEY_MASK -> let
+          mask      = maxSize -# 1#
+          prevLevel = level +# KEY_BITS
+          maxSize   = uncheckedIShiftL# 1# prevLevel
+          emptyVec  = empty :: Vector a
+          init'     = snocAA (ba2aa tail') mask initSize level emptyVec init
+          in case initSize ==# maxSize of
+              0# -> Vector size' level init' (_tail emptyVec)
+              _  -> Vector size' prevLevel (init2AA init init') (_tail emptyVec)
+        _ -> Vector size' level init tail'
 {-# INLINABLE snoc #-}
 
 
@@ -132,93 +132,96 @@ fromList = Data.List.foldl' snoc empty
 {-# INLINABLE fromList #-}
 
 foldr :: forall a b. Prim a => (a -> b -> b) -> b -> Vector a -> b 
-foldr f z (Vector size level init tail) = case initSize ==# 0# of
-    0# -> notfull (initSize -# 1#) level init tailRes
-    _  -> tailRes
+foldr f z (Vector size level init tail) = case initSize of
+    0# -> tailRes  
+    _  -> notfull (initSize -# 1#) level init tailRes
+
     where
         tailSize = andI# size KEY_MASK
         initSize = size -# tailSize
-        tailRes = A.foldr tailSize f z tail 
+        tailRes  = A.foldr tailSize f z tail 
 
-        notfull :: Int# -> Int# -> AArray -> b -> b 
-        notfull lasti level arr z = case level ># 0# of
-            1# -> AA.foldr lasti' (full level') (notfull lasti level' (AA.index arr lasti') z) arr
-            _  -> A.foldr NODE_WIDTH f z (aa2ba arr)
+        notfull :: Int# -> Int# -> AArray -> b -> b
+        notfull lasti level arr z = case level of
+            0# -> A.foldr NODE_WIDTH f z (aa2ba arr)          
+            _ -> AA.foldr lasti' (full level') (notfull lasti level' (AA.index arr lasti') z) arr
             where lasti' = index lasti level
                   level' = next level
 
         full :: Int# -> AArray -> b -> b
-        full level arr z = case level ># 0# of
-            1# -> AA.foldr NODE_WIDTH (full (next level)) z arr
-            _  -> A.foldr NODE_WIDTH f z (aa2ba arr)
+        full 0#    arr z = A.foldr NODE_WIDTH f z (aa2ba arr)
+        full level arr z = AA.foldr NODE_WIDTH (full (next level)) z arr
 {-# INLINABLE foldr #-}
 
 
 rfoldr :: forall a b. Prim a => (a -> b -> b) -> b -> Vector a -> b 
-rfoldr f z (Vector size level init tail) = case initSize ==# 0# of
-    0# -> A.rfoldr tailSize f (notfull (initSize -# 1#) level init z) tail
-    _  -> A.rfoldr tailSize f z tail 
+rfoldr f z (Vector size level init tail) = case initSize of
+    0# -> A.rfoldr tailSize f z tail   
+    _  -> A.rfoldr tailSize f (notfull (initSize -# 1#) level init z) tail
+
     where
         tailSize = andI# size KEY_MASK
         initSize = size -# tailSize
 
         notfull :: Int# -> Int# -> AArray -> b -> b 
-        notfull lasti level arr z = case level ># 0# of
-            1# -> notfull lasti level' (AA.index arr lasti') (AA.rfoldr lasti' (full level') z arr)
-            _  -> A.rfoldr NODE_WIDTH f z (aa2ba arr)
+        notfull lasti level arr z = case level of
+            0# -> A.rfoldr NODE_WIDTH f z (aa2ba arr)          
+            _  -> notfull lasti level' (AA.index arr lasti') (AA.rfoldr lasti' (full level') z arr)
             where lasti' = index lasti level
                   level' = next level
 
         full :: Int# -> AArray -> b -> b
-        full level arr z = case level ># 0# of
-            1# -> AA.rfoldr NODE_WIDTH (full (next level)) z arr
-            _  -> A.rfoldr NODE_WIDTH f z (aa2ba arr)
+        full 0#    arr z = A.rfoldr NODE_WIDTH f z (aa2ba arr)
+        full level arr z = AA.rfoldr NODE_WIDTH (full (next level)) z arr
 {-# INLINABLE rfoldr #-}
 
 foldl' :: forall a b. Prim a => (b -> a -> b) -> b -> Vector a -> b 
-foldl' f z (Vector size level init tail) = case initSize ==# 0# of
-    0# -> A.foldl' tailSize f (notfull (initSize -# 1#) level init z) tail  
-    _  -> A.foldl' tailSize f z tail 
+foldl' f z (Vector size level init tail) = case initSize of
+    0# -> A.foldl' tailSize f z tail   
+    _  -> A.foldl' tailSize f (notfull (initSize -# 1#) level init z) tail  
+
     where
         tailSize = andI# size KEY_MASK
         initSize = size -# tailSize
 
         notfull :: Int# -> Int# -> AArray -> b -> b 
-        notfull lasti level arr z = case level ># 0# of
-            1# -> notfull lasti level' (AA.index arr lasti') (AA.foldl' lasti' (full level') z arr)
-            _  -> A.foldl' width f z (aa2ba arr)
+        notfull lasti level arr z = case level of
+            0# -> A.foldl' width f z (aa2ba arr)          
+            _  -> notfull lasti level' (AA.index arr lasti') (AA.foldl' lasti' (full level') z arr)
             where lasti' = index lasti level
                   level' = next level
                   width = NODE_WIDTH
 
-        full :: Int# -> b -> AArray -> b
-        full level z arr = case level ># 0# of
-            1# -> AA.foldl' width (full (next level)) z arr
-            _  -> A.foldl' width f z (aa2ba arr)
+        full :: Int# -> b -> AArray -> b        
+        full level z arr = case level of
+            0# -> A.foldl' width f z (aa2ba arr)          
+            _  -> AA.foldl' width (full (next level)) z arr
+
             where width = NODE_WIDTH
 {-# INLINABLE foldl' #-}
 
 
 rfoldl' :: forall a b. Prim a => (b -> a -> b) -> b -> Vector a -> b 
-rfoldl' f z (Vector size level init tail) = case initSize ==# 0# of
-    0# -> notfull (initSize -# 1#) level init (A.rfoldl' tailSize f z tail) 
-    _  -> A.rfoldl' tailSize f z tail 
+rfoldl' f z (Vector size level init tail) = case initSize of
+    0# -> A.rfoldl' tailSize f z tail   
+    _  -> notfull (initSize -# 1#) level init (A.rfoldl' tailSize f z tail) 
+
     where
         tailSize = andI# size KEY_MASK
         initSize = size -# tailSize
 
         notfull :: Int# -> Int# -> AArray -> b -> b 
-        notfull lasti level arr z = case level ># 0# of
-            1# -> AA.rfoldl' lasti' (full level') (notfull lasti level' (AA.index arr lasti') z) arr
-            _  -> A.rfoldl' width f z (aa2ba arr)
+        notfull lasti level arr z = case level of
+            0# -> A.rfoldl' width f z (aa2ba arr)          
+            _  -> AA.rfoldl' lasti' (full level') (notfull lasti level' (AA.index arr lasti') z) arr
             where lasti' = index lasti level
                   level' = next level
-                  width = NODE_WIDTH
+                  width  = NODE_WIDTH
 
         full :: Int# -> b -> AArray -> b
-        full level z arr = case level ># 0# of
-            1# -> AA.rfoldl' width (full (next level)) z arr
-            _  -> A.rfoldl' width f z (aa2ba arr)
+        full level z arr = case level of
+            0# -> A.rfoldl' width f z (aa2ba arr)          
+            _  -> AA.rfoldl' width (full (next level)) z arr
             where width = NODE_WIDTH
 {-# INLINABLE rfoldl' #-}
 
@@ -233,49 +236,48 @@ map f (Vector size level init tail) = Vector size level init' tail' where
     tail' = A.map tailSize f tail
 
     notfull :: Int# -> Int# -> AArray -> AArray
-    notfull lasti level arr = case level ># 0# of
-        1# -> AA.mapInitLast lasti' (full level') (notfull lasti level') arr 
-        _  -> ba2aa (A.map NODE_WIDTH f (aa2ba arr))
+    notfull lasti level arr = case level of
+        0# -> ba2aa (A.map NODE_WIDTH f (aa2ba arr))      
+        _  -> AA.mapInitLast lasti' (full level') (notfull lasti level') arr 
         where lasti' = index lasti level
               level' = next level
 
     full :: Int# -> AArray -> AArray
-    full level arr = case level ># 0# of
-        1# -> AA.map width (full (next level)) arr
-        _  -> ba2aa (A.map width f (aa2ba arr))
+    full level arr = case level of
+        0# -> ba2aa (A.map width f (aa2ba arr))      
+        _  -> AA.map width (full (next level)) arr
         where width = NODE_WIDTH
 {-# INLINABLE map #-}
+
+modifyAA :: Prim a => Int# -> Int# -> (a -> a) -> AArray -> AArray
+modifyAA i level f arr = case level of
+  0# -> ba2aa (A.modify' width (aa2ba arr) (index i 0#) f)
+  _  -> AA.modify width arr (index i level) (modifyAA i (next level) f)
+  where width = NODE_WIDTH
+{-# INLINABLE modifyAA #-}
 
 modify# :: forall a. Prim a => Vector a -> Int# -> (a -> a) -> Vector a 
 modify# (Vector size level init tail) i f = case i >=# 0# of 
     1# -> let
         tailSize = andI# size KEY_MASK
         initSize = size -# tailSize
-        width = NODE_WIDTH
+        width    = NODE_WIDTH
         in case i <# initSize of
-            1# -> Vector size level (go i level init) tail
+            1# -> Vector size level (modifyAA i level f init) tail
             _  -> case i <# size of
                 1# -> Vector size level init (A.modify' width tail (i -# initSize) f)
-                _  -> error "Vector.!: out of bounds"
-    _  -> error "Vector.!: out of bounds"
-    where go i level arr = case level ># 0# of
-            1# -> AA.modify width arr (index i level) (go i (next level))
-            _  -> ba2aa (A.modify' width (aa2ba arr) (index i level) f)
-            where width = NODE_WIDTH
+                _  -> boundsError
+    _  -> boundsError
 {-# INLINABLE modify# #-}
 
 unsafeModify# :: forall a. Prim a => Vector a -> Int# -> (a -> a) -> Vector a 
 unsafeModify# (Vector size level init tail) i f = 
     let tailSize = andI# size KEY_MASK
         initSize = size -# tailSize
-        width = NODE_WIDTH
+        width    = NODE_WIDTH
     in case i <# initSize of
-        1# -> Vector size level (go i level init) tail
+        1# -> Vector size level (modifyAA i level f init) tail
         _  -> Vector size level init (A.modify' width tail (i -# initSize) f)
-    where go i level arr = case level ># 0# of
-            1# -> AA.modify width arr (index i level) (go i (next level))
-            _  -> ba2aa (A.modify' width (aa2ba arr) (index i level) f)
-            where width = NODE_WIDTH
 {-# INLINABLE unsafeModify# #-}
 
 modify :: forall a. Prim a => Vector a -> Int -> (a -> a) -> Vector a 
@@ -286,9 +288,24 @@ unsafeModify :: forall a. Prim a => Vector a -> Int -> (a -> a) -> Vector a
 unsafeModify v (I# i) f = unsafeModify# v i f
 {-# INLINABLE unsafeModify #-}
 
+
 empty :: Prim a => Vector a
 empty = Vector 0# 0# (_getArr emptyAA) (A.new NODE_WIDTH)
+
 {-# INLINABLE empty #-}
+{-# SPECIALIZE empty :: Vector Int #-}
+{-# SPECIALIZE empty :: Vector Char #-}
+{-# SPECIALIZE empty :: Vector Int8 #-}
+{-# SPECIALIZE empty :: Vector Int16 #-}
+{-# SPECIALIZE empty :: Vector Int32 #-}
+{-# SPECIALIZE empty :: Vector Int64 #-}
+{-# SPECIALIZE empty :: Vector Word8 #-}
+{-# SPECIALIZE empty :: Vector Word16 #-}
+{-# SPECIALIZE empty :: Vector Word32 #-}
+{-# SPECIALIZE empty :: Vector Word64 #-}
+{-# SPECIALIZE empty :: Vector Float #-}
+{-# SPECIALIZE empty :: Vector Double #-}
+
 
 -- | This is needed so we can have a non-polymorphic static value
 -- for the empty AArray
@@ -335,6 +352,14 @@ ba2aa = unsafeCoerce#
 undefElem :: a
 undefElem = error "Vector: undefined element"
 {-# NOINLINE undefElem #-}
+
+boundsError :: a
+boundsError = error "TrieVector: index out of bounds"
+{-# NOINLINE boundsError #-}
+
+popError :: a
+popError = error "TrieVector: can't pop from empty vector"
+{-# NOINLINE popError #-}
 
 init1BA :: Prim a => a -> ByteArray#
 init1BA a = A.init1 NODE_WIDTH a
