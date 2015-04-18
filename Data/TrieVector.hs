@@ -37,7 +37,6 @@ import qualified Data.Traversable as T
 
 import GHC.Prim
 import GHC.Types
-import Debug.Trace
 import Data.List
 
 import Data.TrieVector.Array (Array)
@@ -91,10 +90,15 @@ safeRappend a b = Data.TrieVector.rfoldl' snoc a b
 infixl 5 |>
 {-# INLINE (|>) #-}
 
-
+infixl 5 !
 (!) :: forall a. Vector a -> Int -> a
 (!) v (I# i) = v !# i
 {-# INLINE (!) #-}
+
+
+indexAA :: Int# -> Int# -> AArray -> a
+indexAA i 0#    init = A.index (aa2a init) (index i 0#)
+indexAA i level init = indexAA i (next level) (AA.index init (index i level))
 
 (!#) :: forall a. Vector a -> Int# -> a
 (!#) (Vector size level init tail) i = case i >=# 0# of 
@@ -102,16 +106,13 @@ infixl 5 |>
         tailSize = andI# size KEY_MASK
         initSize = size -# tailSize
         in case i <# initSize of
-            1# -> go i level init
+            1# -> indexAA i level init
             _  -> case i <# size of
                 1# -> A.index tail (i -# initSize)
-                _  -> error "Vector.!: out of bounds"
-    _  -> error "Vector.!: out of bounds"
-    where go i level init = case level ># 0# of 
-            1# -> go i (next level) (AA.index init (index i level))
-            _  -> A.index (aa2a init) (index i level)
-infixl 5 !
+                _  -> boundsError
+    _  -> boundsError
 {-# INLINE (!#) #-}
+
 
 unsafeIndex :: Vector a -> Int -> a
 unsafeIndex v (I# i) = unsafeIndex# v i
@@ -122,40 +123,34 @@ unsafeIndex# (Vector size level init tail) i = let
     tailSize = andI# size KEY_MASK
     initSize = size -# tailSize
     in case i <# initSize of
-        1# -> go i level init
+        1# -> indexAA i level init
         _  -> A.index tail (i -# initSize)
-    where go i level init = case level ># 0# of
-            1# -> go i (next level) (AA.index init (index i level))
-            _  -> A.index (aa2a init) (index i level)
 {-# INLINE unsafeIndex# #-}
 
-
 snocArr :: AArray -> Int# -> Int# -> Int# -> AArray -> AArray
-snocArr arr mask i level init = case level ># 0# of
-    1# -> case andI# i mask ==# 0# of 
-        0# -> AA.modify width init (index i level) (snocArr arr (nextMask mask) i (next level))
-        _  -> init1AA (snocArr arr (nextMask mask) i (next level) (_init empty))
-        where width = NODE_WIDTH
-    _ -> arr
+snocArr arr mask i 0#    init = arr
+snocArr arr mask i level init = case andI# i mask of
+  0# -> init1AA (snocArr arr (nextMask mask) i (next level) (_init empty))
+  _  -> AA.modify NODE_WIDTH init (index i level) (snocArr arr (nextMask mask) i (next level))
 
 snoc :: forall a. Vector a -> a -> Vector a
 snoc (Vector size level init tail) v = let
     tailSize  = andI# size KEY_MASK
     initSize  = size -# tailSize
     size'     = size +# 1#
-    width     = NODE_WIDTH
-    tail'     = A.update width tail tailSize v
+    tail'     =
+      A.update NODE_WIDTH tail tailSize v
 
-    in case tailSize ==# KEY_MASK of
-        0# -> Vector size' level init tail'
-        _  -> let
-            mask      = maxSize -# 1#
-            prevLevel = level +# KEY_BITS
-            maxSize   = uncheckedIShiftL# 1# prevLevel
-            init'     = snocArr (a2aa tail') mask initSize level init
-            in case initSize ==# maxSize of
-                0# -> Vector size' level init' (_tail empty)
-                _  -> Vector size' prevLevel (init2AA init init') (_tail empty)
+    in case tailSize of
+        KEY_MASK -> let
+          mask      = maxSize -# 1#
+          prevLevel = level +# KEY_BITS
+          maxSize   = uncheckedIShiftL# 1# prevLevel
+          init'     = snocArr (a2aa tail') mask initSize level init
+          in case initSize ==# maxSize of
+              1# -> Vector size' prevLevel (init2AA init init') (_tail empty)          
+              _  -> Vector size' level init' (_tail empty)
+        _ -> Vector size' level init tail'
 {-# INLINE snoc #-}
 
 popArray :: Int# -> Int# -> Int# -> AArray -> (# Array a, AArray #)
@@ -170,23 +165,23 @@ popArray mask i level init = case level ># 0# of
 {-# INLINE popArray #-}
 
 pop :: forall a. Vector a -> (Vector a, a)
-pop (Vector 0#   _      _    _   ) = error "Vector.pop: empty vector"
+pop (Vector 0#   _     _    _   ) = popError
 pop (Vector size level init tail) = let
     tailSize  = andI# size KEY_MASK
     initSize  = size -# tailSize
     size'     = size -# 1#
     width     = NODE_WIDTH
 
-    in case tailSize ==# 0# of
-        0# -> let lasti = tailSize -# 1# in 
-            (Vector size' level init (A.update width tail lasti undefElem), A.index tail lasti)
-        _  -> let
-            prevLevel = level +# KEY_BITS
-            mask      = (uncheckedIShiftL# 1# prevLevel) -# 1#
-            (# popped, init' #) = popArray mask size' level init
-            in case index size' level ==# 0# of
-                0# -> (Vector size' level init' popped, A.index popped (width -# 1#))
-                _  -> (Vector size' (next level) (AA.index init' 0#) popped, A.index popped (width -# 1#))
+    in case tailSize of
+        0# -> let
+          prevLevel = level +# KEY_BITS
+          mask      = (uncheckedIShiftL# 1# prevLevel) -# 1#
+          (# popped, init' #) = popArray mask size' level init
+          in case index size' level ==# 0# of
+              0# -> (Vector size' level init' popped, A.index popped (width -# 1#))
+              _  -> (Vector size' (next level) (AA.index init' 0#) popped, A.index popped (width -# 1#))
+        _ -> let lasti = tailSize -# 1# in 
+          (Vector size' level init (A.update width tail lasti undefElem), A.index tail lasti)
 {-# INLINE pop #-}
 
 fromList :: [a] -> Vector a
@@ -201,17 +196,16 @@ foldr f z (Vector size level arr tail) = case initSize ==# 0# of
         initSize = size -# tailSize
         tailRes = A.foldr tailSize f z tail 
 
-        notfull :: Int# -> Int# -> AArray -> b -> b 
-        notfull lasti level arr z = case level ># 0# of
-            1# -> AA.foldr lasti' (full level') (notfull lasti level' (AA.index arr lasti') z) arr
-            _  -> A.foldr NODE_WIDTH f z (aa2a arr)
+        notfull :: Int# -> Int# -> AArray -> b -> b
+        notfull lasti 0#    arr z = A.foldr NODE_WIDTH f z (aa2a arr)
+        notfull lasti level arr z =
+            AA.foldr lasti' (full level') (notfull lasti level' (AA.index arr lasti') z) arr
             where lasti' = index lasti level
                   level' = next level
 
         full :: Int# -> AArray -> b -> b
-        full level arr z = case level ># 0# of
-            1# -> AA.foldr NODE_WIDTH (full (next level)) z arr
-            _  -> A.foldr NODE_WIDTH f z (aa2a arr)
+        full 0#    arr z = A.foldr NODE_WIDTH f z (aa2a arr)
+        full level arr z = AA.foldr NODE_WIDTH (full (next level)) z arr
 {-# INLINE foldr #-}
 
 
@@ -224,16 +218,15 @@ rfoldr f z (Vector size level init tail) = case initSize ==# 0# of
         initSize = size -# tailSize
 
         notfull :: Int# -> Int# -> AArray -> b -> b 
-        notfull lasti level arr z = case level ># 0# of
-            1# -> notfull lasti level' (AA.index arr lasti') (AA.rfoldr lasti' (full level') z arr)
-            _  -> A.rfoldr NODE_WIDTH f z (aa2a arr)
+        notfull lasti level arr z = case level of
+            0# -> A.rfoldr NODE_WIDTH f z (aa2a arr)
+            _  -> notfull lasti level' (AA.index arr lasti') (AA.rfoldr lasti' (full level') z arr) 
             where lasti' = index lasti level
                   level' = next level
 
         full :: Int# -> AArray -> b -> b
-        full level arr z = case level ># 0# of
-            1# -> AA.rfoldr NODE_WIDTH (full (next level)) z arr
-            _  -> A.rfoldr NODE_WIDTH f z (aa2a arr)
+        full 0#    arr z = A.rfoldr NODE_WIDTH f z (aa2a arr)
+        full level arr z = AA.rfoldr NODE_WIDTH (full (next level)) z arr
 {-# INLINE rfoldr #-}
 
 foldl' :: forall a b. (b -> a -> b) -> b -> Vector a -> b 
@@ -245,17 +238,17 @@ foldl' f z (Vector size level init tail) = case initSize ==# 0# of
         initSize = size -# tailSize
 
         notfull :: Int# -> Int# -> AArray -> b -> b 
-        notfull lasti level arr z = case level ># 0# of
-            1# -> notfull lasti level' (AA.index arr lasti') (AA.foldl' lasti' (full level') z arr)
-            _  -> A.foldl' width f z (aa2a arr)
+        notfull lasti level arr z = case level of
+            0#  -> A.foldl' width f z (aa2a arr)          
+            _   -> notfull lasti level' (AA.index arr lasti') (AA.foldl' lasti' (full level') z arr)
             where lasti' = index lasti level
                   level' = next level
-                  width = NODE_WIDTH
+                  width  = NODE_WIDTH
 
         full :: Int# -> b -> AArray -> b
-        full level z arr = case level ># 0# of
-            1# -> AA.foldl' width (full (next level)) z arr
-            _  -> A.foldl' width f z (aa2a arr)
+        full level z arr = case level of
+            0# -> A.foldl' width f z (aa2a arr)          
+            _  -> AA.foldl' width (full (next level)) z arr
             where width = NODE_WIDTH
 {-# INLINE foldl' #-}
 
@@ -292,18 +285,21 @@ map f (Vector size level init tail) = Vector size level init' tail' where
     tail' = A.map tailSize f tail
 
     notfull :: Int# -> Int# -> AArray -> AArray
-    notfull lasti level arr = case level ># 0# of
-        1# -> AA.mapInitLast lasti' (full level') (notfull lasti level') arr 
-        _  -> a2aa (A.map NODE_WIDTH f (aa2a arr))
+    notfull lasti level arr = case level of
+        0# -> a2aa (A.map NODE_WIDTH f (aa2a arr))      
+        _  -> AA.mapInitLast lasti' (full level') (notfull lasti level') arr 
         where lasti' = index lasti level
               level' = next level
 
     full :: Int# -> AArray -> AArray
-    full level arr = case level ># 0# of
-        1# -> AA.map width (full (next level)) arr
-        _  -> a2aa (A.map width f (aa2a arr))
-        where width = NODE_WIDTH
+    full 0#    arr = a2aa (A.map NODE_WIDTH f (aa2a arr))
+    full level arr = AA.map NODE_WIDTH (full (next level)) arr
 {-# INLINE map #-}
+
+
+modifyAA :: Int# -> Int# -> (a -> a) -> AArray -> AArray
+modifyAA i 0#    f arr = a2aa (A.modify NODE_WIDTH (aa2a arr) (index i 0#) f)
+modifyAA i level f arr = AA.modify NODE_WIDTH arr (index i level) (modifyAA i (next level) f)  
 
 modify# :: forall a. Vector a -> Int# -> (a -> a) -> Vector a 
 modify# (Vector size level init tail) i f = case i >=# 0# of 
@@ -311,15 +307,11 @@ modify# (Vector size level init tail) i f = case i >=# 0# of
         tailSize = andI# size KEY_MASK
         initSize = size -# tailSize
         in case i <# initSize of
-            1# -> Vector size level (go i level init) tail
+            1# -> Vector size level (modifyAA i level f init) tail
             _  -> case i <# size of
                 1# -> Vector size level init (A.modify NODE_WIDTH tail (i -# initSize) f)
-                _  -> error "Vector.!: out of bounds"
-    _  -> error "Vector.!: out of bounds"
-    where go i level arr = case level ># 0# of
-            1# -> AA.modify width arr (index i level) (go i (next level))
-            _  -> a2aa (A.modify NODE_WIDTH (aa2a arr) (index i level) f)
-            where width = NODE_WIDTH
+                _  -> boundsError
+    _  -> boundsError
 {-# INLINE modify# #-}
 
 unsafeModify# :: forall a. Vector a -> Int# -> (a -> a) -> Vector a 
@@ -327,12 +319,8 @@ unsafeModify# (Vector size level init tail) i f =
     let tailSize = andI# size KEY_MASK
         initSize = size -# tailSize
     in case i <# initSize of
-        1# -> Vector size level (go i level init) tail
+        1# -> Vector size level (modifyAA i level f init) tail
         _  -> Vector size level init (A.modify NODE_WIDTH tail (i -# initSize) f)
-    where go i level arr = case level ># 0# of
-            1# -> AA.modify width arr (index i level) (go i (next level))
-            _  -> a2aa (A.modify NODE_WIDTH (aa2a arr) (index i level) f)
-            where width = NODE_WIDTH
 {-# INLINE unsafeModify# #-}
 
 modify :: forall a. Vector a -> Int -> (a -> a) -> Vector a 
@@ -345,7 +333,7 @@ unsafeModify v (I# i) f = unsafeModify# v i f
 
 empty :: Vector a
 empty = Vector 0# 0# emptyAA emptyTail where
-    !emptyAA = AA.new 0# undefElem
+    !emptyAA   = AA.new 0# undefElem
     !emptyTail = A.new NODE_WIDTH undefElem
 
 singleton :: a -> Vector a
@@ -364,10 +352,6 @@ toList = Data.TrieVector.foldr (:) []
 
 -- Internals -----------------------------------------------------------------
 
-
--- TODO: we don't need some of this with the new ArrayArray API
--- And some can be shared with Unboxed (along with a large chunk of the implementation
--- concerning AArrays
 
 next :: Int# -> Int#
 next level = level -# KEY_BITS
@@ -389,9 +373,17 @@ a2aa :: Array a -> AArray
 a2aa = unsafeCoerce#
 {-# INLINE a2aa #-}
 
+boundsError :: a
+boundsError = error "TrieVector: index out of bounds"
+{-# NOINLINE boundsError #-}
+
 undefElem :: a
 undefElem = error "Vector: undefined element"
 {-# NOINLINE undefElem #-}
+
+popError :: a
+popError = error "TrieVector: can't pop from empty vector"
+{-# NOINLINE popError #-}
 
 init1A :: a -> Array a
 init1A a = A.init1 NODE_WIDTH a undefElem
