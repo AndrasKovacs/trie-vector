@@ -95,24 +95,51 @@ infixl 5 !
 (!) v (I# i) = v !# i
 {-# INLINE (!) #-}
 
-
-indexAA :: Int# -> Int# -> AArray -> a
-indexAA i 0#    init = A.index (aa2a init) (index i 0#)
-indexAA i level init = indexAA i (next level) (AA.index init (index i level))
-
 (!#) :: forall a. Vector a -> Int# -> a
 (!#) (Vector size level init tail) i = case i >=# 0# of 
     1# -> let
         tailSize = andI# size KEY_MASK
         initSize = size -# tailSize
-        in case i <# initSize of
-            1# -> indexAA i level init
+        indexAA 0#    init = A.index (aa2a init) (index i 0#)
+        indexAA level init = indexAA (next level) (AA.index init (index i level))        
+        in case i <# initSize of        
+            1# ->
+              case level of
+                0# -> A.index (aa2a init) (index i level)
+                _  -> let
+                  l2 = next level
+                  i2 = AA.index init (index i level) in
+                  case l2 of
+                    0# -> A.index (aa2a i2) (index i l2)
+                    _  -> let
+                      l3 = next l2
+                      i3 = AA.index i2 (index i l2) in
+                      case l3 of
+                        0# -> A.index (aa2a i3) (index i l3)
+                        _  -> let
+                          l4 = next l3
+                          i4 = AA.index i3 (index i l3) in
+                          case l4 of
+                            0# -> A.index (aa2a i4) (index i l4)
+                            _  -> let
+                              l5 = next l4
+                              i5 = AA.index i4 (index i l4) in
+                              case l5 of
+                                0# -> A.index (aa2a i5) (index i l5)
+                                _  -> let
+                                  l6 = next l5
+                                  i6 = AA.index i5 (index i l5) in
+                                  case l6 of
+                                    0# -> A.index (aa2a i6) (index i l6)
+                                    _  -> let
+                                      l7 = next l6
+                                      i7 = AA.index i6 (index i l6) in
+                                      indexAA l7 i7                                   
             _  -> case i <# size of
                 1# -> A.index tail (i -# initSize)
                 _  -> boundsError
     _  -> boundsError
 {-# INLINE (!#) #-}
-
 
 unsafeIndex :: Vector a -> Int -> a
 unsafeIndex v (I# i) = unsafeIndex# v i
@@ -120,10 +147,45 @@ unsafeIndex v (I# i) = unsafeIndex# v i
 
 unsafeIndex# :: forall a. Vector a -> Int# -> a
 unsafeIndex# (Vector size level init tail) i = let
+  
+    indexAA 0#    init = A.index (aa2a init) (index i 0#)
+    indexAA level init = indexAA (next level) (AA.index init (index i level))
+    
     tailSize = andI# size KEY_MASK
     initSize = size -# tailSize
     in case i <# initSize of
-        1# -> indexAA i level init
+        1# ->
+          case level of
+            0# -> A.index (aa2a init) (index i level)
+            _  -> let
+              l2 = next level
+              i2 = AA.index init (index i level) in
+              case l2 of
+                0# -> A.index (aa2a i2) (index i l2)
+                _  -> let
+                  l3 = next l2
+                  i3 = AA.index i2 (index i l2) in
+                  case l3 of
+                    0# -> A.index (aa2a i3) (index i l3)
+                    _  -> let
+                      l4 = next l3
+                      i4 = AA.index i3 (index i l3) in
+                      case l4 of
+                        0# -> A.index (aa2a i4) (index i l4)
+                        _  -> let
+                          l5 = next l4
+                          i5 = AA.index i4 (index i l4) in
+                          case l5 of
+                            0# -> A.index (aa2a i5) (index i l5)
+                            _  -> let
+                              l6 = next l5
+                              i6 = AA.index i5 (index i l5) in
+                              case l6 of
+                                0# -> A.index (aa2a i6) (index i l6)
+                                _  -> let
+                                  l7 = next l6
+                                  i7 = AA.index i6 (index i l6) in
+                                  indexAA l7 i7            
         _  -> A.index tail (i -# initSize)
 {-# INLINE unsafeIndex# #-}
 
@@ -301,6 +363,11 @@ map f (Vector size level init tail) = Vector size level init' tail' where
 {-# INLINE map #-}
 
 
+
+
+
+
+
 modifyAA :: Int# -> Int# -> (a -> a) -> AArray -> AArray
 modifyAA i 0#    f arr = a2aa (A.modify NODE_WIDTH (aa2a arr) (index i 0#) f)
 modifyAA i level f arr = AA.modify NODE_WIDTH arr (index i level) (modifyAA i (next level) f)
@@ -327,6 +394,13 @@ unsafeModify# (Vector size level init tail) i f =
         1# -> Vector size level (modifyAA i level f init) tail
         _  -> Vector size level init (A.modify NODE_WIDTH tail (i -# initSize) f)
 {-# INLINE unsafeModify# #-}
+
+
+
+
+
+
+
 
 modify :: forall a. Vector a -> Int -> (a -> a) -> Vector a 
 modify v (I# i) f = modify# v i f

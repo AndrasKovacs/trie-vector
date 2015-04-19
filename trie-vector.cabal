@@ -56,6 +56,8 @@ benchmark benchmarks
   type: exitcode-stdio-1.0
 
   build-depends:
+    unordered-containers,
+    containers,
     base,
     criterion,
     vector,
@@ -67,5 +69,18 @@ benchmark benchmarks
     -Wall -O2 -rtsopts -fllvm
     -fno-warn-name-shadowing -fno-warn-missing-signatures
     -fno-warn-unused-binds
+
+executable memtest
+  default-language: Haskell2010
+
+  hs-source-dirs: . memtest
+  main-is: MemTest.hs
+  
+  build-depends:
+    base, ghc-prim, primitive, random, vector,
+    containers, unordered-containers
+
+  ghc-options:
+    -Wall -O2 -rtsopts -fllvm -with-rtsopts=-s
 
   
