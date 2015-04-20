@@ -28,8 +28,10 @@ module Data.TrieVector (
     , fromList
     , snocFromList
     , pop
+    , Data.TrieVector.reverse
+    , Data.TrieVector.inits
+    , revTails
     ) where
-
 
 
 import qualified Data.Foldable as F
@@ -427,6 +429,22 @@ unsafeModify :: forall a. Vector a -> Int -> (a -> a) -> Vector a
 unsafeModify v (I# i) f = unsafeModify# v i f
 {-# INLINE unsafeModify #-}
 
+
+reverse :: Vector a -> Vector a
+reverse v = rfoldl' snoc empty v
+{-# INLINE reverse #-}
+
+-- | Note: lists inits in reversed order compared to Data.List.inits !
+inits :: Vector a -> [Vector a]
+inits = go where
+  go v | F.null v = [v]
+  go v = v : go (fst $ pop v)
+{-# INLINE inits #-}
+
+revTails :: Vector a -> [Vector a]
+revTails = Data.TrieVector.inits . Data.TrieVector.reverse where
+{-# INLINE revTails #-}  
+
 empty :: Vector a
 empty = Vector 0# 0# emptyAA emptyTail where
     !emptyAA   = AA.new 0# undefElem
@@ -492,3 +510,4 @@ init2AA a1 a2 = AA.init2 NODE_WIDTH a1 a2 (_tail empty)
 #undef NODE_WIDTH 
 #undef KEY_BITS 
 #undef KEY_MASK 
+
