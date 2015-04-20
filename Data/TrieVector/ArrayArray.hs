@@ -4,8 +4,10 @@
 
 module Data.TrieVector.ArrayArray (
       A.run
+    , ptrEq
     , update
     , modify
+    , noCopyModify
     , index
     , new
     , newM
@@ -40,6 +42,11 @@ update size arr i a  = A.run $ \s ->
             s -> A.unsafeFreeze marr s
 {-# INLINE update #-}
 
+ptrEq :: AArray -> AArray -> Int#
+ptrEq a b = reallyUnsafePtrEquality#
+  (unsafeCoerce# a :: Any) (unsafeCoerce# b :: Any)
+{-# INLINE ptrEq #-}  
+
 modify :: Int# -> AArray -> Int# -> (AArray -> AArray) -> AArray
 modify size arr i f = A.run $ \s ->
     case A.thaw arr 0# size s of
@@ -47,6 +54,15 @@ modify size arr i f = A.run $ \s ->
             (# s, a #) -> case write marr i (f a) s of
                 s -> A.unsafeFreeze marr s
 {-# INLINE modify #-}
+
+noCopyModify :: Int# -> AArray -> Int# -> (AArray -> AArray) -> AArray
+noCopyModify size arr i f = let
+  a  = index arr i
+  a' = f a
+  in case reallyUnsafePtrEquality# (unsafeCoerce# a :: Any) (unsafeCoerce# a' :: Any) of
+      1# -> arr
+      _  -> update size arr i a'
+{-# INLINE noCopyModify #-}      
 
 map :: Int# -> (AArray -> AArray) -> AArray -> AArray
 map size f = \arr ->

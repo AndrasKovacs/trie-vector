@@ -23,7 +23,8 @@ fromListA :: [a] -> A.Array a
 fromListA xs = let !(I# l) = length xs in A.fromList l undefined xs
 
 
--- MISSING tests : ByteArray/*, Array/fromList'
+-- MISSING tests : ByteArray/*, Array/fromList', Array/noCopyModify
+-- ArrayArray/noCopyModify
 
 main :: IO ()
 main = defaultMain $ localOption (QuickCheckMaxSize 1000) $
@@ -153,7 +154,13 @@ main = defaultMain $ localOption (QuickCheckMaxSize 1000) $
                  forAll (choose (0, length xs - 1)) $ \i ->
                  (xs& ix i %~ apply f) ==
                  (F.toList (V.modify (V.fromList xs) i (apply f)))
-                
+
+           , QC.testProperty "unsafeNoCopyModify'#" $
+               \(xs :: [Int]) (f :: Fun Int Int) -> not (null xs) ==>
+                 forAll (choose (0, length xs - 1)) $ \i@(I# pi) ->
+                 (xs& ix i %~ apply f) ==
+                 (F.toList (V.unsafeNoCopyModify'# (V.fromList xs) pi (apply f)))
+                 
            , localOption (QuickCheckMaxSize 200) $ QC.testProperty "append" $
                \(xs :: [Int]) (ys :: [Int]) ->
                (xs ++ ys) == F.toList (V.fromList xs `mappend` V.fromList ys)

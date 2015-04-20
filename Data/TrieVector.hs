@@ -22,6 +22,7 @@ module Data.TrieVector (
     , unsafeModify
     , modify#
     , unsafeModify#
+    , unsafeNoCopyModify'#
     , singleton
     , empty
     , Data.TrieVector.length
@@ -428,6 +429,32 @@ modify v (I# i) f = modify# v i f
 unsafeModify :: forall a. Vector a -> Int -> (a -> a) -> Vector a
 unsafeModify v (I# i) f = unsafeModify# v i f
 {-# INLINE unsafeModify #-}
+
+
+unsafeNoCopyModify'# :: forall a. Vector a -> Int# -> (a -> a) -> Vector a
+unsafeNoCopyModify'# v@(Vector size level init tail) i f = case i >=# 0# of
+  1# -> let
+    width = NODE_WIDTH
+    modifyAA 0#    arr = a2aa (A.noCopyModify' width (aa2a arr) (index i 0#) f)
+    modifyAA level arr = AA.noCopyModify width arr (index i level) (modifyAA (next level))
+
+    tailSize = andI# size KEY_MASK
+    initSize = size -# tailSize
+    in case i <# initSize of
+        1# -> let
+          init' = modifyAA level init in
+          case AA.ptrEq init init' of            
+            1# -> v
+            _  -> Vector size level init' tail
+        _  -> case i <# size of
+            1# -> let
+              tail' = A.noCopyModify' width tail (i -# initSize) f in
+              case AA.ptrEq (a2aa tail) (a2aa tail') of
+                1# -> v
+                _  -> Vector size level init tail'
+            _  -> boundsError        
+  _  -> boundsError
+{-# INLINE unsafeNoCopyModify'# #-}
 
 
 reverse :: Vector a -> Vector a

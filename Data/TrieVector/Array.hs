@@ -7,6 +7,7 @@ module Data.TrieVector.Array (
     , update
     , modify
     , modify'
+    , noCopyModify'
     , index
     , new
     , toList
@@ -54,6 +55,15 @@ modify' size arr i f = A.run $ \s ->
             (# s, a #) -> let !val = f a in case A.write marr i val s of
                 s -> A.unsafeFreeze marr s
 {-# INLINE modify' #-}
+
+noCopyModify' :: Int# -> Array a -> Int# -> (a -> a) -> Array a
+noCopyModify' size arr i f = let
+  a   = index arr i
+  !a' = f a
+  in case reallyUnsafePtrEquality# a a' of
+      1# -> arr
+      _  -> update size arr i a'
+{-# INLINE noCopyModify' #-}        
 
 map :: forall a b. Int# -> (a -> b) ->  Array a -> Array b
 map size f = \arr ->
