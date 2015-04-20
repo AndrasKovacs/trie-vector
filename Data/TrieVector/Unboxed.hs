@@ -3,7 +3,7 @@
   MagicHash, BangPatterns, UnboxedTuples,
   RoleAnnotations, CPP, RankNTypes, ScopedTypeVariables #-}
 
-{-# OPTIONS_GHC -fno-full-laziness #-}
+{-# OPTIONS_GHC -fno-full-laziness -fno-warn-name-shadowing #-}
 
 module Data.TrieVector.Unboxed (
       Vector(..)
@@ -27,7 +27,7 @@ module Data.TrieVector.Unboxed (
     , empty
     , Data.TrieVector.Unboxed.length
     , toList
-    , fromList 
+    , fromList
     ) where
 
 
@@ -70,15 +70,46 @@ infixl 5 |>
 (!) v (I# i) = v !# i
 {-# INLINABLE (!) #-}
 
-(!#) :: Prim a => Vector a -> Int# -> a
+(!#) :: forall a. Prim a => Vector a -> Int# -> a
 (!#) (Vector size level init tail) i = case i >=# 0# of 
     1# -> let
-        go i 0#    init = A.index (aa2ba init) (index i 0#)
-        go i level init = go i (next level) (AA.index init (index i level))        
         tailSize = andI# size KEY_MASK
         initSize = size -# tailSize
-        in case i <# initSize of
-            1# -> go i level init
+        indexAA 0#    init = A.index (aa2ba init) (index i 0#)
+        indexAA level init = indexAA (next level) (AA.index init (index i level))        
+        in case i <# initSize of        
+            1# ->
+              case level of
+                0# -> A.index (aa2ba init) (index i level)
+                _  -> let
+                  l2 = next level
+                  i2 = AA.index init (index i level) in
+                  case l2 of
+                    0# -> A.index (aa2ba i2) (index i l2)
+                    _  -> let
+                      l3 = next l2
+                      i3 = AA.index i2 (index i l2) in
+                      case l3 of
+                        0# -> A.index (aa2ba i3) (index i l3)
+                        _  -> let
+                          l4 = next l3
+                          i4 = AA.index i3 (index i l3) in
+                          case l4 of
+                            0# -> A.index (aa2ba i4) (index i l4)
+                            _  -> let
+                              l5 = next l4
+                              i5 = AA.index i4 (index i l4) in
+                              case l5 of
+                                0# -> A.index (aa2ba i5) (index i l5)
+                                _  -> let
+                                  l6 = next l5
+                                  i6 = AA.index i5 (index i l5) in
+                                  case l6 of
+                                    0# -> A.index (aa2ba i6) (index i l6)
+                                    _  -> let
+                                      l7 = next l6
+                                      i7 = AA.index i6 (index i l6) in
+                                      indexAA l7 i7                                   
             _  -> case i <# size of
                 1# -> A.index tail (i -# initSize)
                 _  -> boundsError
@@ -89,27 +120,60 @@ unsafeIndex :: Prim a => Vector a -> Int -> a
 unsafeIndex v (I# i) = unsafeIndex# v i
 {-# INLINABLE unsafeIndex #-}
 
-unsafeIndex# :: Prim a => Vector a -> Int# -> a
+unsafeIndex# :: forall a. Prim a => Vector a -> Int# -> a
 unsafeIndex# (Vector size level init tail) i = let
-    go i 0#    init = A.index (aa2ba init) (index i 0#)
-    go i level init = go i (next level) (AA.index init (index i level))
+  
+    indexAA 0#    init = A.index (aa2ba init) (index i 0#)
+    indexAA level init = indexAA (next level) (AA.index init (index i level))
+    
     tailSize = andI# size KEY_MASK
-    initSize = size -# tailSize    
+    initSize = size -# tailSize
     in case i <# initSize of
-        1# -> go i level init
+        1# ->
+          case level of
+            0# -> A.index (aa2ba init) (index i level)
+            _  -> let
+              l2 = next level
+              i2 = AA.index init (index i level) in
+              case l2 of
+                0# -> A.index (aa2ba i2) (index i l2)
+                _  -> let
+                  l3 = next l2
+                  i3 = AA.index i2 (index i l2) in
+                  case l3 of
+                    0# -> A.index (aa2ba i3) (index i l3)
+                    _  -> let
+                      l4 = next l3
+                      i4 = AA.index i3 (index i l3) in
+                      case l4 of
+                        0# -> A.index (aa2ba i4) (index i l4)
+                        _  -> let
+                          l5 = next l4
+                          i5 = AA.index i4 (index i l4) in
+                          case l5 of
+                            0# -> A.index (aa2ba i5) (index i l5)
+                            _  -> let
+                              l6 = next l5
+                              i6 = AA.index i5 (index i l5) in
+                              case l6 of
+                                0# -> A.index (aa2ba i6) (index i l6)
+                                _  -> let
+                                  l7 = next l6
+                                  i7 = AA.index i6 (index i l6) in
+                                  indexAA l7 i7            
         _  -> A.index tail (i -# initSize)
 {-# INLINABLE unsafeIndex# #-}
 
 
+snocAA :: AArray -> Int# -> Int# -> Int# -> Vector a -> AArray -> AArray
+snocAA arr _    _ 0#    _     _    = arr
+snocAA arr mask i level empty init = case andI# i mask of
+  0# -> init1AA (snocAA arr (nextMask mask) i (next level) empty (ba2aa (_tail empty)))
+  _  -> AA.modify NODE_WIDTH init
+    (index i level) (snocAA arr (nextMask mask) i (next level) empty)
+
 snoc :: forall a. Prim a => Vector a -> a -> Vector a
 snoc (Vector size level init tail) v = let
-
-    snocAA :: AArray -> Int# -> Int# -> Int# -> Vector a -> AArray -> AArray
-    snocAA arr mask i 0#    empty init = arr
-    snocAA arr mask i level empty init = case andI# i mask of
-      0# -> init1AA (snocAA arr (nextMask mask) i (next level) empty (ba2aa (_tail empty)))
-      _  -> AA.modify NODE_WIDTH init
-        (index i level) (snocAA arr (nextMask mask) i (next level) empty)
     
     tailSize  = andI# size KEY_MASK
     initSize  = size -# tailSize
@@ -165,6 +229,32 @@ pop (Vector size level init tail) = let
 fromList :: Prim a => [a] -> Vector a
 fromList = Data.List.foldl' snoc empty 
 {-# INLINABLE fromList #-}
+
+
+-- | For some reason this is not faster than naive snoccing!
+
+-- snocArr :: forall a. Prim a => Vector a -> ByteArray# -> Vector a
+-- snocArr (Vector size level init tail) arr = let
+--   width     = NODE_WIDTH
+--   size'     = size +# width
+--   prevLevel = level +# KEY_BITS          
+--   maxSize   = uncheckedIShiftL# 1# prevLevel          
+--   mask      = maxSize -# 1#
+--   init'     = snocAA (ba2aa arr) mask size level (empty :: Vector a) init
+--   in case size ==# maxSize of
+--       1# -> Vector size' prevLevel (init2AA init init') tail
+--       _  -> Vector size' level init' tail
+-- {-# INLINABLE snocArr #-}
+
+-- fromList :: forall a. Prim a => [a] -> Vector a
+-- fromList = go (empty :: Vector a) where
+--   width = NODE_WIDTH
+--   go acc@(Vector size level init tail) xs = case A.fromList' width xs of
+--     (# arr, xs, consumed #) -> case consumed of
+--       NODE_WIDTH -> go (snocArr acc arr) xs
+--       _          -> Vector (size +# consumed) level init arr
+-- {-# INLINABLE fromList #-}   
+
 
 foldr :: forall a b. Prim a => (a -> b -> b) -> b -> Vector a -> b 
 foldr f z (Vector size level init tail) = case initSize of

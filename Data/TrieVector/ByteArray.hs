@@ -1,5 +1,5 @@
 {-# LANGUAGE MagicHash, UnboxedTuples, Rank2Types, BangPatterns, ScopedTypeVariables #-}
-{-# OPTIONS_GHC -fno-full-laziness #-}
+{-# OPTIONS_GHC -fno-full-laziness -fno-warn-name-shadowing #-}
 
 -- Note : all indexing and sizes are relative to the sizes of the element types.
 -- except for "thaw', which expects size in bytes
@@ -18,6 +18,7 @@ module Data.TrieVector.ByteArray (
     , rfoldl'
     , rfoldr
     , fromList
+    , fromList'
     , toList
     , update
     , new
@@ -27,10 +28,9 @@ module Data.TrieVector.ByteArray (
     ) where
 
 import Prelude hiding (foldr, map)
-import GHC.Base  (realWorld#)
 import Data.Primitive.Types
 import GHC.Prim 
-import GHC.Types (Int(..))
+
 
 type ByteArray = ByteArray#
 
@@ -117,6 +117,27 @@ fromList size xs = run $ \s ->
             go (x:xs) i s = case writeByteArray# marr i x s of s -> go xs (i +# 1#) s
             go _      _ s = unsafeFreezeByteArray# marr s 
 {-# INLINE fromList #-}
+
+runFromList' :: Prim a =>
+  (forall s. State# s -> (# State# s, ByteArray, [a], Int# #)) -> (# ByteArray, [a], Int# #)
+runFromList' strep = case strep realWorld# of
+  (# s, arr, xs, read #) -> (# arr, xs, read #)
+{-# INLINE [0] runFromList' #-}
+
+-- | Returns: ByteArray, rest of the input list, number of elems consumed
+fromList' :: forall a. Prim a => Int# -> [a] -> (# ByteArray, [a], Int# #)
+fromList' size xs = runFromList' $ \s ->
+  case newByteArray# (size *# sizeOf# (undefined :: a)) s of
+    (# s, marr #) -> case go xs 0# s of
+      (# s, xs, read #) -> case unsafeFreezeByteArray# marr s of
+        (# s, arr #) -> (# s, arr, xs, read #)
+      where
+        go xs i s = case i ==# size of
+          1# -> (# s, xs, i #)
+          _  -> case xs of
+            x:xs -> case writeByteArray# marr i x s of s -> go xs (i +# 1#) s
+            []   -> (# s, [], i #)
+{-# INLINE fromList' #-}  
 
 toList :: forall a. Prim a => ByteArray# -> [a]
 toList arr = foldr (quotInt# (sizeofByteArray# arr) (sizeOf# (undefined :: a))) (:) [] arr

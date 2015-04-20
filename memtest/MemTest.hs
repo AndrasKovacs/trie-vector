@@ -12,6 +12,9 @@ import qualified Data.Sequence as S
 tvnSafe :: Int -> ()
 tvnSafe n = seq (TV.safeFromList [1..n]) ()
 
+tuvnSafe :: Int -> ()
+tuvnSafe n = seq (TUV.safeFromList [1..n]) ()
+
 tvn :: Int -> ()
 tvn n = seq (TV.fromList [1..n]) ()
 
@@ -31,7 +34,7 @@ sn :: Int -> ()
 sn n = seq (S.fromList [0..n]) ()
 
 main = do
-  print $ tvn 10000000
+  print $ uvn 100000000
 
 
 

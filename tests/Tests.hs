@@ -22,6 +22,9 @@ apply2 f a b = apply (apply f a) b
 fromListA :: [a] -> A.Array a
 fromListA xs = let !(I# l) = length xs in A.fromList l undefined xs
 
+
+-- MISSING tests : ByteArray/*, Array/fromList'
+
 main :: IO ()
 main = defaultMain $ localOption (QuickCheckMaxSize 1000) $
        testGroup "tests" [
@@ -96,113 +99,113 @@ main = defaultMain $ localOption (QuickCheckMaxSize 1000) $
          --     (a1 : a2 : replicate ((I# size) - 2) def) == A.toList (A.init2 size a1 a2 def)
          -- ],
 
-         testGroup "TrieVector" [
+         -- testGroup "TrieVector" [
 
-             QC.testProperty "length/fromList" $
-               \(xs :: [Int]) -> length xs == V.length (V.fromList xs)
+         --     QC.testProperty "length/fromList" $
+         --       \(xs :: [Int]) -> length xs == V.length (V.fromList xs)
          
-           , QC.testProperty "toList/fromList" $ 
-               \(xs :: [Int]) -> xs == F.toList (V.fromList xs)
-                                
-           , QC.testProperty "snoc" $
-               \(xs :: [Int]) (x :: Int) ->
-                 (xs ++ [x]) == F.toList (V.fromList xs V.|> x)
-                
-           , QC.testProperty "append" $
-               \(xs :: [Int]) (ys :: [Int]) ->
-                 (xs ++ ys) == F.toList (mappend (V.fromList xs) (V.fromList ys))
-                
-           , QC.testProperty "!" $
-               \(xs :: [Int]) -> not (null xs) ==>
-                  let vec = V.fromList xs in
-                  forAll (choose (0, length xs - 1)) $ \i ->
-                  (xs !! i) == (vec V.! i)
-                                                            
-           , QC.testProperty "pop" $
-               \(xs :: [Int]) -> not (null xs) ==>
-                  ((init xs, last xs) == over _1 F.toList (V.pop (V.fromList xs))) 
-         
-           , QC.testProperty "map" $
-               \(xs :: [Int]) (f :: Fun Int Int) ->
-                 map (apply f) xs == F.toList (V.map (apply f) (V.fromList xs))
-                
-           , QC.testProperty "foldr" $
-               \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
-                 foldr (apply2 f) z xs == (V.foldr (apply2 f) z (V.fromList xs))
-         
-           , QC.testProperty "rfoldr" $
-               \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
-                 foldr (apply2 f) z (reverse xs) ==
-                 (V.rfoldr (apply2 f) z (V.fromList xs))
-                
-           , QC.testProperty "foldl'" $
-               \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
-                 foldl (apply2 f) z xs ==
-                 (V.foldl' (apply2 f) z (V.fromList xs))
-                
-           , QC.testProperty "rfoldl'" $
-               \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
-                 foldl (apply2 f) z (reverse xs) ==
-                 (V.rfoldl' (apply2 f) z (V.fromList xs))
-                
-           , QC.testProperty "modify" $
-               \(xs :: [Int]) (f :: Fun Int Int) -> not (null xs) ==>
-                 forAll (choose (0, length xs - 1)) $ \i ->
-                 (xs& ix i %~ apply f) ==
-                 (F.toList (V.modify (V.fromList xs) i (apply f)))
-                
-           , localOption (QuickCheckMaxSize 200) $ QC.testProperty "concat left" $
-               \(xss :: [[Int]]) ->
-               concat xss == F.toList (foldl' mappend V.empty (map V.fromList xss))
-                                   
-           , localOption (QuickCheckMaxSize 200) $ QC.testProperty "concat right" $
-               \(xss :: [[Int]]) ->
-               concat xss == F.toList (foldr mappend V.empty (map V.fromList xss))
-           ]
-
-         -- testGroup "TrieVector.Unboxed" [
-         
-         --     QC.testProperty "toList/fromList" $ 
-         --       \(xs :: [Int]) -> xs == U.toList (U.fromList xs)
+         --   , QC.testProperty "toList/fromList" $ 
+         --       \(xs :: [Int]) -> xs == F.toList (V.fromList xs)
                                 
          --   , QC.testProperty "snoc" $
          --       \(xs :: [Int]) (x :: Int) ->
-         --         (xs ++ [x]) == U.toList (U.fromList xs U.|> x)
-
-         --   , QC.testProperty "pop" $
-         --       \(xs :: [Int]) -> not (null xs) ==>
-         --          ((init xs, last xs) == over _1 U.toList (U.pop (U.fromList xs)))       
+         --         (xs ++ [x]) == F.toList (V.fromList xs V.|> x)
+                
+         --   , QC.testProperty "append" $
+         --       \(xs :: [Int]) (ys :: [Int]) ->
+         --         (xs ++ ys) == F.toList (mappend (V.fromList xs) (V.fromList ys))
                 
          --   , QC.testProperty "!" $
          --       \(xs :: [Int]) -> not (null xs) ==>
-         --          let vec = U.fromList xs in
-         --          forAll (choose (0, length xs - 1)) $ \i -> (xs !! i) == (vec U.! i)
-                                   
+         --          let vec = V.fromList xs in
+         --          forAll (choose (0, length xs - 1)) $ \i ->
+         --          (xs !! i) == (vec V.! i)
+                                                            
+         --   , QC.testProperty "pop" $
+         --       \(xs :: [Int]) -> not (null xs) ==>
+         --          ((init xs, last xs) == over _1 F.toList (V.pop (V.fromList xs))) 
+         
          --   , QC.testProperty "map" $
          --       \(xs :: [Int]) (f :: Fun Int Int) ->
-         --         map (apply f) xs == U.toList (U.map (apply f) (U.fromList xs))
+         --         map (apply f) xs == F.toList (V.map (apply f) (V.fromList xs))
                 
          --   , QC.testProperty "foldr" $
          --       \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
-         --         foldr (apply2 f) z xs == (U.foldr (apply2 f) z (U.fromList xs))
+         --         foldr (apply2 f) z xs == (V.foldr (apply2 f) z (V.fromList xs))
          
          --   , QC.testProperty "rfoldr" $
          --       \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
-         --         foldr (apply2 f) z (reverse xs) == (U.rfoldr (apply2 f) z (U.fromList xs))
+         --         foldr (apply2 f) z (reverse xs) ==
+         --         (V.rfoldr (apply2 f) z (V.fromList xs))
                 
          --   , QC.testProperty "foldl'" $
          --       \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
-         --         foldl (apply2 f) z xs == (U.foldl' (apply2 f) z (U.fromList xs))
+         --         foldl (apply2 f) z xs ==
+         --         (V.foldl' (apply2 f) z (V.fromList xs))
                 
          --   , QC.testProperty "rfoldl'" $
          --       \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
-         --         foldl (apply2 f) z (reverse xs) == (U.rfoldl' (apply2 f) z (U.fromList xs))
+         --         foldl (apply2 f) z (reverse xs) ==
+         --         (V.rfoldl' (apply2 f) z (V.fromList xs))
                 
          --   , QC.testProperty "modify" $
          --       \(xs :: [Int]) (f :: Fun Int Int) -> not (null xs) ==>
          --         forAll (choose (0, length xs - 1)) $ \i ->
-         --         (xs& ix i %~ apply f) == (U.toList (U.modify (U.fromList xs) i (apply f)))
-         --   ]    
+         --         (xs& ix i %~ apply f) ==
+         --         (F.toList (V.modify (V.fromList xs) i (apply f)))
+                
+         --   , localOption (QuickCheckMaxSize 200) $ QC.testProperty "concat left" $
+         --       \(xss :: [[Int]]) ->
+         --       concat xss == F.toList (foldl' mappend V.empty (map V.fromList xss))
+                                   
+         --   , localOption (QuickCheckMaxSize 200) $ QC.testProperty "concat right" $
+         --       \(xss :: [[Int]]) ->
+         --       concat xss == F.toList (foldr mappend V.empty (map V.fromList xss))
+         --   ]
+
+         testGroup "TrieVector.Unboxed" [
+         
+             QC.testProperty "toList/fromList" $ 
+               \(xs :: [Int]) -> xs == U.toList (U.fromList xs)
+                                
+           , QC.testProperty "snoc" $
+               \(xs :: [Int]) (x :: Int) ->
+                 (xs ++ [x]) == U.toList (U.fromList xs U.|> x)
+
+           , QC.testProperty "pop" $
+               \(xs :: [Int]) -> not (null xs) ==>
+                  ((init xs, last xs) == over _1 U.toList (U.pop (U.fromList xs)))       
+                
+           , QC.testProperty "!" $
+               \(xs :: [Int]) -> not (null xs) ==>
+                  let vec = U.fromList xs in
+                  forAll (choose (0, length xs - 1)) $ \i -> (xs !! i) == (vec U.! i)
+                                   
+           , QC.testProperty "map" $
+               \(xs :: [Int]) (f :: Fun Int Int) ->
+                 map (apply f) xs == U.toList (U.map (apply f) (U.fromList xs))
+                
+           , QC.testProperty "foldr" $
+               \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
+                 foldr (apply2 f) z xs == (U.foldr (apply2 f) z (U.fromList xs))
+         
+           , QC.testProperty "rfoldr" $
+               \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
+                 foldr (apply2 f) z (reverse xs) == (U.rfoldr (apply2 f) z (U.fromList xs))
+                
+           , QC.testProperty "foldl'" $
+               \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
+                 foldl (apply2 f) z xs == (U.foldl' (apply2 f) z (U.fromList xs))
+                
+           , QC.testProperty "rfoldl'" $
+               \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
+                 foldl (apply2 f) z (reverse xs) == (U.rfoldl' (apply2 f) z (U.fromList xs))
+                
+           , QC.testProperty "modify" $
+               \(xs :: [Int]) (f :: Fun Int Int) -> not (null xs) ==>
+                 forAll (choose (0, length xs - 1)) $ \i ->
+                 (xs& ix i %~ apply f) == (U.toList (U.modify (U.fromList xs) i (apply f)))
+           ]    
          
      ]
 

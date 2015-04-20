@@ -180,14 +180,18 @@ main = defaultMainWith config [
      --    bench "100k"  $ whnf (benchIx ((TUV.!) tuv100k )) r100k,
      --    bench "1M"    $ whnf (benchIx ((TUV.!) tuv1M   )) r1M,
      --    bench "10M"   $ whnf (benchIx ((TUV.!) tuv10M  )) r10M
-     --    ]    
-    
-     -- bgroup "unsafeIndex" [
-     --    bench "10"    $ whnf (benchIx (TUV.unsafeIndex tuv10   )) r10,
-     --    bench "100"   $ whnf (benchIx (TUV.unsafeIndex tuv100  )) r100,
-     --    bench "10000" $ whnf (benchIx (TUV.unsafeIndex tuv10000)) r10000,
-     --    bench "1M"    $ whnf (benchIx (TUV.unsafeIndex tuv1M   )) r1M
      --    ],
+
+     bgroup "unsafeIndex" [
+        bench "10"    $ whnf (benchIx (TUV.unsafeIndex tuv10   )) r10,
+        bench "100"   $ whnf (benchIx (TUV.unsafeIndex tuv100  )) r100,
+        bench "1000"  $ whnf (benchIx (TUV.unsafeIndex tuv1000 )) r100,
+        bench "10000" $ whnf (benchIx (TUV.unsafeIndex tuv10000)) r10000,
+        bench "100k"  $ whnf (benchIx (TUV.unsafeIndex tuv100k )) r100k,
+        bench "1M"    $ whnf (benchIx (TUV.unsafeIndex tuv1M   )) r1M,
+        bench "10M"   $ whnf (benchIx (TUV.unsafeIndex tuv10M  )) r10M
+        ]         
+    
      
      -- bgroup "unsafeModify" [
      --    bench "10"    $ whnf (benchIx (flip (TUV.unsafeModify tuv10   ) (const 0) )) r10,

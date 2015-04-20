@@ -26,7 +26,7 @@ module Data.TrieVector (
     , empty
     , Data.TrieVector.length
     , fromList
-    , safeFromList
+    , snocFromList
     , pop
     ) where
 
@@ -252,9 +252,9 @@ pop (Vector size level init tail) = let
           (Vector size' level init (A.update width tail lasti undefElem), A.index tail lasti)
 {-# INLINE pop #-}
 
-safeFromList :: [a] -> Vector a
-safeFromList = Data.List.foldl' snoc empty
-{-# INLINE safeFromList #-}
+snocFromList :: [a] -> Vector a
+snocFromList = Data.List.foldl' snoc empty
+{-# INLINE snocFromList #-}
 
 snocArr :: forall a. Vector a -> Array a -> Vector a
 snocArr (Vector size level init tail) arr = let
@@ -268,7 +268,6 @@ snocArr (Vector size level init tail) arr = let
       1# -> Vector size' prevLevel (init2AA init init') tail
       _  -> Vector size' level init' tail
 {-# INLINE snocArr #-}     
-
 
 fromList :: [a] -> Vector a
 fromList = go empty where
