@@ -12,6 +12,7 @@ import Test.Tasty.QuickCheck as QC
 import Test.QuickCheck.Function
 import Control.Lens
 import Data.List (foldl')
+import qualified Data.Foldable as F
 
 import GHC.Types
 
@@ -19,7 +20,7 @@ apply2 :: Fun a (Fun b c) -> a -> b -> c
 apply2 f a b = apply (apply f a) b
 
 fromListA :: [a] -> A.Array a
-fromListA xs = let !(I# l) = length xs in A.fromList l xs
+fromListA xs = let !(I# l) = length xs in A.fromList l undefined xs
 
 main :: IO ()
 main = defaultMain $ localOption (QuickCheckMaxSize 1000) $
@@ -95,21 +96,21 @@ main = defaultMain $ localOption (QuickCheckMaxSize 1000) $
          --     (a1 : a2 : replicate ((I# size) - 2) def) == A.toList (A.init2 size a1 a2 def)
          -- ],
 
-         testGroup "Vector" [
+         testGroup "TrieVector" [
 
              QC.testProperty "length/fromList" $
                \(xs :: [Int]) -> length xs == V.length (V.fromList xs)
          
            , QC.testProperty "toList/fromList" $ 
-               \(xs :: [Int]) -> xs == V.toList (V.fromList xs)
+               \(xs :: [Int]) -> xs == F.toList (V.fromList xs)
                                 
            , QC.testProperty "snoc" $
                \(xs :: [Int]) (x :: Int) ->
-                 (xs ++ [x]) == V.toList (V.fromList xs V.|> x)
+                 (xs ++ [x]) == F.toList (V.fromList xs V.|> x)
                 
            , QC.testProperty "append" $
                \(xs :: [Int]) (ys :: [Int]) ->
-                 (xs ++ ys) == V.toList (V.safeAppend (V.fromList xs) (V.fromList ys))
+                 (xs ++ ys) == F.toList (mappend (V.fromList xs) (V.fromList ys))
                 
            , QC.testProperty "!" $
                \(xs :: [Int]) -> not (null xs) ==>
@@ -119,11 +120,11 @@ main = defaultMain $ localOption (QuickCheckMaxSize 1000) $
                                                             
            , QC.testProperty "pop" $
                \(xs :: [Int]) -> not (null xs) ==>
-                  ((init xs, last xs) == over _1 V.toList (V.pop (V.fromList xs))) 
+                  ((init xs, last xs) == over _1 F.toList (V.pop (V.fromList xs))) 
          
            , QC.testProperty "map" $
                \(xs :: [Int]) (f :: Fun Int Int) ->
-                 map (apply f) xs == V.toList (V.map (apply f) (V.fromList xs))
+                 map (apply f) xs == F.toList (V.map (apply f) (V.fromList xs))
                 
            , QC.testProperty "foldr" $
                \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
@@ -148,18 +149,18 @@ main = defaultMain $ localOption (QuickCheckMaxSize 1000) $
                \(xs :: [Int]) (f :: Fun Int Int) -> not (null xs) ==>
                  forAll (choose (0, length xs - 1)) $ \i ->
                  (xs& ix i %~ apply f) ==
-                 (V.toList (V.modify (V.fromList xs) i (apply f)))
+                 (F.toList (V.modify (V.fromList xs) i (apply f)))
                 
            , localOption (QuickCheckMaxSize 200) $ QC.testProperty "concat left" $
                \(xss :: [[Int]]) ->
-               concat xss == V.toList (foldl' V.safeAppend V.empty (map V.fromList xss))
+               concat xss == F.toList (foldl' mappend V.empty (map V.fromList xss))
                                    
            , localOption (QuickCheckMaxSize 200) $ QC.testProperty "concat right" $
                \(xss :: [[Int]]) ->
-               concat xss == V.toList (foldr V.safeAppend V.empty (map V.fromList xss))
+               concat xss == F.toList (foldr mappend V.empty (map V.fromList xss))
            ]
 
-         -- testGroup "Unboxed" [
+         -- testGroup "TrieVector.Unboxed" [
          
          --     QC.testProperty "toList/fromList" $ 
          --       \(xs :: [Int]) -> xs == U.toList (U.fromList xs)

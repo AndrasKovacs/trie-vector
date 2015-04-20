@@ -11,6 +11,7 @@ module Data.TrieVector.Array (
     , new
     , toList
     , fromList
+    , fromList'
     , init1
     , init2
     , foldr
@@ -105,13 +106,34 @@ rfoldl' size f = \z arr -> go (size -# 1#) z arr where
         _  -> z
 {-# INLINE rfoldl' #-}
  
-fromList :: Int# -> [a] -> Array a
-fromList size xs = A.run $ \s -> 
-    case A.new size undefined s of
+fromList :: Int# -> a -> [a] -> Array a
+fromList size def xs = A.run $ \s -> 
+    case A.new size def s of
         (# s, marr #) -> go xs 0# s where
             go (x:xs) i s = case A.write marr i x s of s -> go xs (i +# 1#) s
             go _      _ s = A.unsafeFreeze marr s 
 {-# INLINE fromList #-}
+
+runFromList' ::
+  (forall s. State# s -> (# State# s, Array a, [a], Int# #)) -> (# Array a, [a], Int# #)
+runFromList' strep = case strep realWorld# of
+  (# s, arr, xs, read #) -> (# arr, xs, read #)
+{-# INLINE [0] runFromList' #-}
+
+-- | Returns: Array, rest of the input list, number of elems consumed
+fromList' :: Int# -> a -> [a] -> (# Array a, [a], Int# #)
+fromList' size def xs = runFromList' $ \s ->
+  case A.new size def s of
+    (# s, marr #) -> case go xs 0# s of
+      (# s, xs, read #) -> case A.unsafeFreeze marr s of
+        (# s, arr #) -> (# s, arr, xs, read #)
+      where
+        go xs i s = case i ==# size of
+          1# -> (# s, xs, i #)
+          _  -> case xs of
+            x:xs -> case A.write marr i x s of s -> go xs (i +# 1#) s
+            []   -> (# s, [], i #)
+{-# INLINE fromList' #-}            
 
 toList :: Array a -> [a]
 toList arr = foldr (A.sizeof arr) (:) [] arr

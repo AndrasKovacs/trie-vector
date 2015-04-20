@@ -9,6 +9,9 @@ import qualified Data.Map.Strict as M
 import qualified Data.Sequence as S
 
 
+tvnSafe :: Int -> ()
+tvnSafe n = seq (TV.safeFromList [1..n]) ()
+
 tvn :: Int -> ()
 tvn n = seq (TV.fromList [1..n]) ()
 
@@ -28,7 +31,7 @@ sn :: Int -> ()
 sn n = seq (S.fromList [0..n]) ()
 
 main = do
-  print $ sn 1000000
+  print $ tvn 10000000
 
 
 
