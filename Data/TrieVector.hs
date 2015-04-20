@@ -84,10 +84,9 @@ instance Monoid (Vector a) where
   mappend = Data.TrieVector.foldl' snoc
   {-# INLINE mappend #-}
 
-
 instance Traversable Vector where
   traverse f = fmap fromList . traverse f . F.toList
-  {-# INLINE traverse #-}  
+  {-# INLINE traverse #-}
 
 
 (|>) :: Vector a -> a -> Vector a

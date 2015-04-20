@@ -42,7 +42,6 @@ import Data.TrieVector.ArrayArray (AArray)
 import qualified Data.TrieVector.ArrayArray as AA
 
 import Data.List
-
 import Data.Word
 import Data.Int
 
@@ -51,6 +50,13 @@ import Data.Int
 #define KEY_MASK 15#
 
 
+instance Prim a => Monoid (Vector a) where
+  mempty = (empty :: Vector a)
+  {-# INLINABLE mempty #-}
+  mappend = Data.TrieVector.Unboxed.foldl' snoc
+  {-# INLINABLE mappend #-}
+
+  
 type role Vector nominal
 
 data Vector a = Vector {
