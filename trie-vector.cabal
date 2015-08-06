@@ -25,6 +25,9 @@ library
         Data.TrieVector.SmallArrayPrim,
         Data.TrieVector.ArrayPrimWrap
 
+  ghc-options:
+    -O2 -fllvm -fno-warn-name-shadowing -fno-warn-missing-signatures
+        
   build-depends:       
     base >=4.7,
     ghc-prim >= 0.3.1.0,

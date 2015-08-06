@@ -148,54 +148,6 @@ infixl 5 !
     _  -> boundsError
 {-# INLINE (!#) #-}
 
-unsafeIndex :: Vector a -> Int -> a
-unsafeIndex v (I# i) = unsafeIndex# v i
-{-# INLINE unsafeIndex #-}
-
-unsafeIndex# :: forall a. Vector a -> Int# -> a
-unsafeIndex# (Vector size level init tail) i = let
-  
-    indexAA 0#    init = A.index (aa2a init) (index i 0#)
-    indexAA level init = indexAA (next level) (AA.index init (index i level))
-    
-    tailSize = andI# size KEY_MASK
-    initSize = size -# tailSize
-    in case i <# initSize of
-        1# ->
-          case level of
-            0# -> A.index (aa2a init) (index i level)
-            _  -> let
-              l2 = next level
-              i2 = AA.index init (index i level) in
-              case l2 of
-                0# -> A.index (aa2a i2) (index i l2)
-                _  -> let
-                  l3 = next l2
-                  i3 = AA.index i2 (index i l2) in
-                  case l3 of
-                    0# -> A.index (aa2a i3) (index i l3)
-                    _  -> let
-                      l4 = next l3
-                      i4 = AA.index i3 (index i l3) in
-                      case l4 of
-                        0# -> A.index (aa2a i4) (index i l4)
-                        _  -> let
-                          l5 = next l4
-                          i5 = AA.index i4 (index i l4) in
-                          case l5 of
-                            0# -> A.index (aa2a i5) (index i l5)
-                            _  -> let
-                              l6 = next l5
-                              i6 = AA.index i5 (index i l5) in
-                              case l6 of
-                                0# -> A.index (aa2a i6) (index i l6)
-                                _  -> let
-                                  l7 = next l6
-                                  i7 = AA.index i6 (index i l6) in
-                                  indexAA l7 i7            
-        _  -> A.index tail (i -# initSize)
-{-# INLINE unsafeIndex# #-}
-
 snocAA :: AArray -> Int# -> Int# -> Int# -> AArray -> AArray
 snocAA arr _    _ 0#    _    = arr
 snocAA arr mask i level init = case andI# i mask of

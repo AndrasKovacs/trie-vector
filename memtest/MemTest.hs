@@ -8,12 +8,11 @@ import qualified Data.Vector.Unboxed as UV
 import qualified Data.Map.Strict as M
 import qualified Data.Sequence as S
 
+-- tvnSafe :: Int -> ()
+-- tvnSafe n = seq (TV.safeFromList [1..n]) ()
 
-tvnSafe :: Int -> ()
-tvnSafe n = seq (TV.safeFromList [1..n]) ()
-
-tuvnSafe :: Int -> ()
-tuvnSafe n = seq (TUV.safeFromList [1..n]) ()
+-- tuvnSafe :: Int -> ()
+-- tuvnSafe n = seq (TUV.safeFromList [1..n]) ()
 
 tvn :: Int -> ()
 tvn n = seq (TV.fromList [1..n]) ()
