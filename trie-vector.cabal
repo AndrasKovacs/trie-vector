@@ -84,6 +84,6 @@ executable memtest
     containers, unordered-containers
 
   ghc-options:
-    -Wall -O2 -rtsopts -fllvm -with-rtsopts=-s
+    -Wall -O2 -fllvm
 
   

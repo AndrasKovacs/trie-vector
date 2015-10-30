@@ -14,11 +14,6 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.Sequence as S
 import qualified Data.Map.Strict as M
 
-import GHC.Prim
-import GHC.Types
-
-import Data.List
-
 randix :: Int -> [Int]
 randix size = take 100 $ randomRs (0, size - 1) (mkStdGen 1)
 
@@ -93,15 +88,15 @@ main :: IO ()
 main = defaultMainWith config [
   bgroup "Boxed" [
 
-     bgroup "index" [
-        bench "10"    $ whnf (benchIx ((TV.!) tv10   )) r10,
-        bench "100"   $ whnf (benchIx ((TV.!) tv100  )) r100,
-        bench "1000"  $ whnf (benchIx ((TV.!) tv1000 )) r100,
-        bench "10000" $ whnf (benchIx ((TV.!) tv10000)) r10000,
-        bench "100k"  $ whnf (benchIx ((TV.!) tv100k )) r100k,
-        bench "1M"    $ whnf (benchIx ((TV.!) tv1M   )) r1M,
-        bench "10M"   $ whnf (benchIx ((TV.!) tv10M  )) r10M
-        ]
+     -- bgroup "index" [
+     --    bench "10"    $ whnf (benchIx ((TV.!) tv10   )) r10,
+     --    bench "100"   $ whnf (benchIx ((TV.!) tv100  )) r100,
+     --    bench "1000"  $ whnf (benchIx ((TV.!) tv1000 )) r100,
+     --    bench "10000" $ whnf (benchIx ((TV.!) tv10000)) r10000,
+     --    bench "100k"  $ whnf (benchIx ((TV.!) tv100k )) r100k,
+     --    bench "1M"    $ whnf (benchIx ((TV.!) tv1M   )) r1M,
+     --    bench "10M"   $ whnf (benchIx ((TV.!) tv10M  )) r10M
+     --    ]
      
 
      -- bgroup "unsafeIndex" [

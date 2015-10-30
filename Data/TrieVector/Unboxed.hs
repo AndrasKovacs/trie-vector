@@ -3,7 +3,7 @@
   MagicHash, BangPatterns, UnboxedTuples,
   RoleAnnotations, CPP, RankNTypes, ScopedTypeVariables #-}
 
-{-# OPTIONS_GHC -fno-full-laziness -fno-warn-name-shadowing #-}
+{-# OPTIONS_GHC -fno-full-laziness -fno-warn-name-shadowing -fno-warn-missing-signatures #-}
 
 module Data.TrieVector.Unboxed (
       Vector(..)
@@ -216,7 +216,6 @@ pop (Vector size level init tail) = let
                   width = NODE_WIDTH
               
     tailSize  = andI# size KEY_MASK
-    initSize  = size -# tailSize
     size'     = size -# 1#
     width     = NODE_WIDTH
 

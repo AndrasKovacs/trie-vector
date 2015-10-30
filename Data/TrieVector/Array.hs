@@ -1,9 +1,14 @@
 {-# LANGUAGE MagicHash, UnboxedTuples, Rank2Types, BangPatterns, ScopedTypeVariables #-}
-{-# OPTIONS_GHC -fno-full-laziness #-}
+{-# OPTIONS_GHC -fno-full-laziness -fno-warn-name-shadowing #-}
 
 module Data.TrieVector.Array (
       A.run
     , A.sizeof
+    , A.thaw
+    , A.unsafeThaw
+    , A.unsafeFreeze
+    , A.read
+    , A.write
     , update
     , modify
     , modify'
@@ -28,7 +33,6 @@ import qualified Data.TrieVector.ArrayPrimWrap as A
 
 import Prelude hiding (foldr, map)
 import GHC.Prim 
-import GHC.Types
 
 type Array a = A.Array a
 type MArray s a = A.MArray s a
@@ -127,7 +131,7 @@ fromList size def xs = A.run $ \s ->
 runFromList' ::
   (forall s. State# s -> (# State# s, Array a, [a], Int# #)) -> (# Array a, [a], Int# #)
 runFromList' strep = case strep realWorld# of
-  (# s, arr, xs, read #) -> (# arr, xs, read #)
+  (# _, arr, xs, read #) -> (# arr, xs, read #)
 {-# INLINE [0] runFromList' #-}
 
 -- | Returns: Array, rest of the input list, number of elems consumed

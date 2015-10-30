@@ -1,9 +1,13 @@
 
 {-# LANGUAGE MagicHash, UnboxedTuples, Rank2Types, BangPatterns, ScopedTypeVariables #-}
-{-# OPTIONS_GHC -fno-full-laziness #-}
+{-# OPTIONS_GHC -fno-full-laziness -fno-warn-name-shadowing #-}
 
 module Data.TrieVector.ArrayArray (
       A.run
+    , A.sizeof
+    , A.thaw
+    , A.unsafeThaw
+    , A.write
     , ptrEq
     , update
     , modify
@@ -27,7 +31,6 @@ module Data.TrieVector.ArrayArray (
 import Prelude hiding (foldr, read, map)
 import GHC.Prim
 
-import Data.TrieVector.ArrayPrimWrap (Array)
 import qualified Data.TrieVector.ArrayPrimWrap as A
 
 type AArray = A.Array Any

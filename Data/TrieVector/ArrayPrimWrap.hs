@@ -1,5 +1,5 @@
 {-# LANGUAGE MagicHash, UnboxedTuples, CPP, RankNTypes #-}
-{-# OPTIONS_GHC -fno-full-laziness #-}
+{-# OPTIONS_GHC -fno-full-laziness -fno-warn-missing-signatures #-}
 
 module Data.TrieVector.ArrayPrimWrap (
       Array
@@ -24,12 +24,10 @@ module Data.TrieVector.ArrayPrimWrap (
     ) where
 
 import GHC.Prim  
-import GHC.Types 
-import GHC.Base (realWorld#)
 
 import Prelude hiding (read)
 
-#if __GLASGOW_HASKELL__>=709
+#if __GLASGOW_HASKELL__ >= 709
 
 type Array = SmallArray#
 type MArray = SmallMutableArray#
