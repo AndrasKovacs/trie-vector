@@ -21,6 +21,8 @@ module Data.TrieVector (
     , modify#
     , unsafeModify#
     , noCopyModify'#
+    , modify2#
+    , modify2
     , singleton
     , empty
     , Data.TrieVector.length
@@ -45,11 +47,32 @@ import qualified Data.TrieVector.Array as A
 import Data.TrieVector.ArrayArray (AArray)
 import qualified Data.TrieVector.ArrayArray as AA
 
+import Debug.Trace
+
+
+#include "MachDeps.h"
+
+#ifdef PROFILING
+#define SMALL_ARR_HEADER_SIZE 4#
+#define ARR_HEADER_SIZE 5#
+#define BYTE_ARR_HEADER_SIZE 4#
+#else
+#define SMALL_ARR_HEADER_SIZE 2#
+#define ARR_HEADER_SIZE 3#
+#define BYTE_ARR_HEADER_SIZE 2#
+#endif
 
 #define NODE_WIDTH 16#
 #define KEY_BITS 4#
 #define KEY_MASK 15#
 
+#if __GLASGOW_HASKELL__ >= 709
+#define HEADER_SIZE SMALL_ARR_HEADER_SIZE
+#define NODE_SIZE (NODE_WIDTH +# HEADER_SIZE)
+#else
+#define HEADER_SIZE ARR_HEADER_SIZE
+#define NODE_SIZE (NODE_WIDTH +# HEADER_SIZE +# 1#)
+#endif
 
 type role Vector nominal
 
@@ -60,10 +83,10 @@ data Vector a = Vector {
 
 instance Functor Vector where
     fmap = Data.TrieVector.map
-    {-# INLINABLE fmap #-}
+    {-# INLINE fmap #-}
 
 instance Show a => Show (Vector a) where
-    show v = "fromList " ++ show (F.toList v)
+    show v = show (F.toList v)
 
 instance F.Foldable Vector where
     foldr = Data.TrieVector.foldr
@@ -378,7 +401,6 @@ unsafeModify :: forall a. Vector a -> Int -> (a -> a) -> Vector a
 unsafeModify v (I# i) f = unsafeModify# v i f
 {-# INLINE unsafeModify #-}
 
-
 noCopyModify'# :: forall a. Vector a -> Int# -> (a -> a) -> Vector a
 noCopyModify'# v@(Vector size level init tail) i f = case i >=# 0# of
   1# -> let
@@ -434,8 +456,25 @@ length (Vector size _ _ _) = I# size
 {-# INLINE length #-}
 
 
--- Internals -----------------------------------------------------------------
 
+-- Low-level fiddling
+--------------------------------------------------------------------------------
+
+copyWords :: Addr# -> Addr# -> Int# -> State# s -> State# s
+copyWords src dst =
+#if __GLASGOW_HASKELL__ >= 709
+  copySmallArray#
+#else
+  copyArray#
+#endif  
+    (unsafeCoerce# src) (-HEADER_SIZE)
+    (unsafeCoerce# dst) (-HEADER_SIZE)
+{-# INLINE copyWords #-}
+
+
+copyNode :: Addr# -> Addr# -> State# s -> State# s
+copyNode src dst = copyWords src dst NODE_SIZE
+{-# INLINE copyNode #-}
 
 next :: Int# -> Int#
 next level = level -# KEY_BITS
@@ -481,125 +520,129 @@ init2AA :: AArray -> AArray -> AArray
 init2AA a1 a2 = AA.init2 NODE_WIDTH a1 a2 (_tail empty)
 {-# INLINE init2AA #-}
 
+nFields :: Addr# -> Int# -> [Int]
+nFields addr n = go 0# where
+  go i = case i ==# n of
+    1# -> []
+    _  -> (I# (indexIntOffAddr# addr i)) : go (i +# 1#)
+{-# INLINE nFields #-}
+
+
+{-# INLINE copyPath #-}
+copyPath ::
+  forall s a.                                    
+  Int# -> Int#
+  -> AArray -> State# s
+  -> (# State# s, AArray, Int#, Array a #)
+             -- (state, root, index at bottom, bottom)
+copyPath level i arr s = let
+  
+  -- number of nodes  
+  nodesNum = quotInt# level KEY_BITS +# 1#   
+  -- path size in words  
+  pathSize = nodesNum *# NODE_SIZE
+  
+  -- size of bytearray data of the whole path
+  -- NOTE: BYTE_ARR_HEADER_SIZE musn't be smaller than NODE_SIZE
+  byteArrSize = (pathSize -# BYTE_ARR_HEADER_SIZE) *# SIZEOF_HSWORD# in
+
+  case newByteArray# byteArrSize s of
+    (# s, path #) -> let
+      
+      src1   = arr
+      level1 = level      
+      dst1   = unsafeCoerce# path :: Addr# in      
+      case copyNode (unsafeCoerce# src1) dst1 s of
+          s -> case level1 of
+            0# -> (# s, unsafeCoerce# dst1, index i level1, unsafeCoerce# dst1 #)
+            _  -> let
+              
+              src2   = AA.index (unsafeCoerce# src1) (index i level1)
+              level2 = next level1
+              dst2   = plusAddr# dst1 (SIZEOF_HSWORD# *# NODE_SIZE) in
+              case AA.write (unsafeCoerce# dst1) (index i level1) (unsafeCoerce# dst2) s of
+                s -> case copyNode (unsafeCoerce# src2) dst2 s of
+                  s -> case level2 of
+                    0# -> (# s, unsafeCoerce# dst1, index i level2, unsafeCoerce# dst2 #)
+                    _  -> let
+
+                      src3   = AA.index (unsafeCoerce# src2) (index i level2)
+                      level3 = next level2
+                      dst3   = plusAddr# dst2 (SIZEOF_HSWORD# *# NODE_SIZE) in
+                      case AA.write (unsafeCoerce# dst2) (index i level2) (unsafeCoerce# dst3) s of
+                        s -> case copyNode (unsafeCoerce# src3) dst3 s of
+                          s -> case level3 of
+                            0# -> (# s, unsafeCoerce# dst1, index i level3, unsafeCoerce# dst3 #)
+                            _  -> let
+
+                             src4   = AA.index (unsafeCoerce# src3) (index i level3)
+                             level4 = next level3
+                             dst4   = plusAddr# dst3 (SIZEOF_HSWORD# *# NODE_SIZE) in
+                             case AA.write (unsafeCoerce# dst3) (index i level3) (unsafeCoerce# dst4) s of
+                               s -> case copyNode (unsafeCoerce# src4) dst4 s of
+                                 s -> case level4 of
+                                   0# -> (# s, unsafeCoerce# dst1, index i level4, unsafeCoerce# dst4 #)
+                                   _  -> let
+
+                                    src5   = AA.index (unsafeCoerce# src4) (index i level4)
+                                    level5 = next level4
+                                    dst5   = plusAddr# dst4 (SIZEOF_HSWORD# *# NODE_SIZE) in
+                                    case AA.write (unsafeCoerce# dst4) (index i level4) (unsafeCoerce# dst5) s of
+                                      s -> case copyNode (unsafeCoerce# src5) dst5 s of
+                                        s -> case level5 of
+                                          0# -> (# s, unsafeCoerce# dst1, index i level5, unsafeCoerce# dst5 #)
+                                          _  -> let
+
+                                           src6   = AA.index (unsafeCoerce# src5) (index i level5)
+                                           level6 = next level5
+                                           dst6   = plusAddr# dst5 (SIZEOF_HSWORD# *# NODE_SIZE) in
+                                           case AA.write (unsafeCoerce# dst5) (index i level5) (unsafeCoerce# dst6) s of
+                                             s -> case copyNode (unsafeCoerce# src6) dst6 s of
+                                               s -> case level6 of
+                                                 0# -> (# s, unsafeCoerce# dst1, index i level6, unsafeCoerce# dst6 #)
+                                                 _  -> let
+
+                                                  src7   = AA.index (unsafeCoerce# src6) (index i level6)
+                                                  level7 = next level6
+                                                  dst7   = plusAddr# dst6 (SIZEOF_HSWORD# *# NODE_SIZE) in
+                                                  case AA.write (unsafeCoerce# dst6) (index i level6) (unsafeCoerce# dst7) s of
+                                                    s -> case copyNode (unsafeCoerce# src7) dst7 s of
+                                                      s -> case level7 of
+                                                        0# -> (# s, unsafeCoerce# dst1, index i level7, unsafeCoerce# dst7 #)
+                                                        _  -> error "way too big, sry"    
+                                               
+
+modify2# :: forall a. Vector a -> Int# -> (a -> a) -> Vector a
+modify2# (Vector size level init tail) i f = case i >=# 0# of
+  1# -> let
+      tailSize = andI# size KEY_MASK
+      initSize = size -# tailSize
+      in case i <# initSize of
+          1# -> let
+            init' = AA.run (\s ->
+              case copyPath level i init s of
+                (# s, init', bottomIx, bottom #) -> case A.unsafeThaw bottom s of
+                  (# s, bottom #) -> case A.read bottom bottomIx s of
+                    (# s, a #) -> case A.write bottom bottomIx (f a) s of
+                      s -> case A.unsafeFreeze bottom s of
+                        (# s, _ #) -> (# s, init' #)) 
+            in Vector size level init' tail
+          _  -> case i <# size of
+              1# -> Vector size level init (A.modify NODE_WIDTH tail (i -# initSize) f)
+              _  -> boundsError        
+  _  -> boundsError
+{-# INLINE modify2# #-}
+
+modify2 :: forall a. Vector a -> Int -> (a -> a) -> Vector a
+modify2 v (I# i) f = modify2# v i f
+{-# INLINE modify2 #-}
+                    
 
 #undef NODE_WIDTH 
 #undef KEY_BITS 
 #undef KEY_MASK
-
-
-
-
-
-
--- {-# INLINE copyPath #-}
--- copyPath ::
---   forall s a.                                    
---   Int# -> Int#
---   -> AArray -> State# s
---   -> (# State# s, AArray, Int#, Array a #)
---              --    root   index at bottom    bottom
--- copyPath level i arr s = let    
---   nodesNum    = quotInt# level KEY_BITS +# 1#   -- number of nodes
---   pathSize    = nodesNum *# NODE_SIZE           -- path size in words
---   byteArrSize = (pathSize) *# SIZEOF_HSWORD# in  -- size of bytearray data of the whole path  
--- --  byteArrSize = (pathSize -# 2#) *# SIZEOF_HSWORD# in  -- size of bytearray data of the whole path
---   case newByteArray# byteArrSize s of
---     (# s, path #) -> let
-      
---       arr1      = arr
---       level1    = level      
---       pathAddr1 = unsafeCoerce# path :: Addr# in      
---       case copyAAToAddr arr1 pathAddr1 s of
---           s -> case level1 of
---             0# -> (# s, unsafeCoerce# pathAddr1, index i level1, unsafeCoerce# pathAddr1 #)
---             _  -> let
-              
---               arr2      = AA.index arr1 (index i level1)
---               level2    = next level1
---               pathAddr2 = plusAddr# pathAddr1 (20# *# 8#) in
---               case AA.write (unsafeCoerce# pathAddr1) (index i level1) (unsafeCoerce# pathAddr2) s of
---                 s -> case copyAAToAddr arr2 pathAddr2 s of
---                   s -> case level2 of                    
---                     0# -> (# s, 
---                                     (traceShow (
---                                      I# (unsafeCoerce# arr1),
---                                      I# (unsafeCoerce# arr2),
---                                      I# (unsafeCoerce# pathAddr1),
---                                      I# (unsafeCoerce# pathAddr2),
---                                      I# (index i level2),
---                                      nFields (unsafeCoerce# arr1) 20,
---                                      nFields (unsafeCoerce# arr2) 20,
---                                      nFields (unsafeCoerce# pathAddr1) 20,
---                                      nFields (unsafeCoerce# pathAddr2) 20 ) unsafeCoerce#)
---                                pathAddr1, index i level2, unsafeCoerce# pathAddr2 #)
---                     _  -> undefined                                        
-
-
-
---                       -- arr3      = AA.index arr2 (index i level2)
---                       -- level3    = next level2
---                       -- pathAddr3 = plusAddr# pathAddr2 NODE_SIZE in
---                       -- case AA.write (unsafeCoerce# pathAddr2) (index i level2) (unsafeCoerce# pathAddr3) s of
---                       --   s -> case copyAAToAddr arr3 pathAddr3 s of
---                       --     s -> case level3 of
---                       --       0# -> (# s, unsafeCoerce# pathAddr2, index i level3, unsafeCoerce# pathAddr3 #)
---                       --       _  -> let
-                              
---                       --         arr4      = AA.index arr3 (index i level3)
---                       --         level4    = next level3
---                       --         pathAddr4 = plusAddr# pathAddr3 NODE_SIZE in
---                       --         case AA.write (unsafeCoerce# pathAddr3) (index i level3) (unsafeCoerce# pathAddr4) s of
---                       --           s -> case copyAAToAddr arr4 pathAddr4 s of
---                       --             s -> case level4 of
---                       --               0# -> (# s, unsafeCoerce# pathAddr3, index i level4, unsafeCoerce# pathAddr4 #)
---                       --               _  -> let
-
---                       --                 arr5      = AA.index arr4 (index i level4)
---                       --                 level5    = next level4
---                       --                 pathAddr5 = plusAddr# pathAddr4 NODE_SIZE in
---                       --                 case AA.write (unsafeCoerce# pathAddr4) (index i level4) (unsafeCoerce# pathAddr5) s of
---                       --                   s -> case copyAAToAddr arr5 pathAddr5 s of
---                       --                     s -> case level5 of
---                       --                       0# -> (# s, unsafeCoerce# pathAddr4, index i level5, unsafeCoerce# pathAddr5 #)
---                       --                       _  -> let
-
---                       --                         arr6      = AA.index arr5 (index i level5)
---                       --                         level6    = next level5
---                       --                         pathAddr6 = plusAddr# pathAddr5 NODE_SIZE in
---                       --                         case AA.write (unsafeCoerce# pathAddr5) (index i level5) (unsafeCoerce# pathAddr6) s of
---                       --                           s -> case copyAAToAddr arr6 pathAddr6 s of
---                       --                             s -> case level6 of
---                       --                               0# -> (# s, unsafeCoerce# pathAddr5, index i level6, unsafeCoerce# pathAddr6 #)
---                       --                               _  -> let
-
---                       --                                 arr7      = AA.index arr6 (index i level6)
---                       --                                 level7    = next level6
---                       --                                 pathAddr7 = plusAddr# pathAddr6 NODE_SIZE in
---                       --                                 case AA.write (unsafeCoerce# pathAddr6) (index i level6) (unsafeCoerce# pathAddr7) s of
---                       --                                   s -> case copyAAToAddr arr7 pathAddr7 s of
---                       --                                     s -> case level7 of
---                       --                                       0# -> (# s, unsafeCoerce# pathAddr6, index i level7, unsafeCoerce# pathAddr7 #)
---                       --                                       _  -> error "Your vector is just too big."
-
-
--- modify2# :: forall a. Vector a -> Int# -> (a -> a) -> Vector a
--- modify2# (Vector size level init tail) i f = case i >=# 0# of
---   1# -> let
---       tailSize = (traceShow (nFields (unsafeCoerce# init) 20) andI#) size KEY_MASK
---       initSize = size -# tailSize
---       in case i <# initSize of
---           1# -> let
---             init' = AA.run (\s ->
---               case copyPath level i init s of
---                 (# s, init', bottomIx, bottom #) -> case A.unsafeThaw bottom s of
---                   (# s, bottom #) -> case A.read bottom bottomIx s of
---                     (# s, a #) -> case A.write bottom bottomIx (f a) s of
---                       s -> case A.unsafeFreeze bottom s of
---                         (# s, _ #) -> (# s, init' #)) 
---             in Vector size level init' tail
---           _  -> case i <# size of
---               1# -> Vector size level init (A.modify NODE_WIDTH tail (i -# initSize) f)
---               _  -> boundsError        
---   _  -> boundsError
--- {-# INLINE modify2# #-}
+#undef SMALL_ARR_HEADER_SIZE
+#undef BYTE_ARR_HEADER_SIZE
+#undef ARR_HEADER_SIZE
+#undef NODE_SIZE
 

@@ -29,6 +29,14 @@ import Prelude hiding (read)
 
 #if __GLASGOW_HASKELL__ >= 709
 
+#ifdef PROFILING
+#define SMALL_ARR_HEADER_SIZE 4#
+#define BYTE_ARR_HEADER_SIZE 4#
+#else
+#define SMALL_ARR_HEADER_SIZE 2#
+#define BYTE_ARR_HEADER_SIZE 2#
+#endif
+
 type Array = SmallArray#
 type MArray = SmallMutableArray#
 

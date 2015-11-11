@@ -1,3 +1,7 @@
+{-# LANGUAGE MagicHash, BangPatterns #-}
+
+import GHC.Types
+import GHC.Prim
 
 import qualified Data.TrieVector as TV
 import qualified Data.TrieVector.Unboxed as TUV
@@ -32,13 +36,7 @@ hn n = seq (HM.fromList $ zip [0..n - 1] [0..n - 1]) ()
 sn :: Int -> ()
 sn n = seq (S.fromList [0..n]) ()
 
-main = do
-  print $ uvn 100000000
-
-
-
-
-
+main = pure ()
 
 
 

@@ -13,6 +13,7 @@ import qualified Data.TrieVector.ArrayArray as AA
 
 import Test.Tasty
 import Test.Tasty.QuickCheck as QC
+import Test.QuickCheck
 import Test.QuickCheck.Function
 import Control.Lens
 import Data.List
@@ -36,6 +37,12 @@ indexAA' arr i = unsafeCoerce# (indexAddrOffAddr# (unsafeCoerce# arr) (i +# 2#))
 indexA' :: Array a -> Int# -> a
 indexA' arr i = unsafeCoerce# (indexAddrOffAddr# (unsafeCoerce# arr) (i +# 2#))
 {-# INLINE indexA' #-}
+
+
+-- main = do
+--   let !vec = V.modify2 (V.fromList (replicate 272 (0::Int))) 0 (const 1)
+--   print vec
+--   print [i | (i::Int, 1) <- zip [0..] (F.toList vec)]
 
 
 -- MISSING tests : ByteArray/*, Array/fromList', Array/noCopyModify
@@ -116,78 +123,87 @@ main = defaultMain $ localOption (QuickCheckMaxSize 1000) $
 
          testGroup "TrieVector" [
 
-             QC.testProperty "length/fromList" $
-               \(xs :: [Int]) -> length xs === V.length (V.fromList xs)
+           --   QC.testProperty "length/fromList" $
+           --     \(xs :: [Int]) -> length xs === V.length (V.fromList xs)
          
-           , QC.testProperty "toList/fromList" $ 
-               \(xs :: [Int]) -> xs === F.toList (V.fromList xs)
+           -- , QC.testProperty "toList/fromList" $ 
+           --     \(xs :: [Int]) -> xs === F.toList (V.fromList xs)
                                 
-           , QC.testProperty "snoc" $
-               \(xs :: [Int]) (x :: Int) ->
-                 (xs ++ [x]) === F.toList (V.fromList xs V.|> x)
+           -- , QC.testProperty "snoc" $
+           --     \(xs :: [Int]) (x :: Int) ->
+           --       (xs ++ [x]) === F.toList (V.fromList xs V.|> x)
                 
-           , QC.testProperty "append" $
-               \(xs :: [Int]) (ys :: [Int]) ->
-                 (xs ++ ys) === F.toList (mappend (V.fromList xs) (V.fromList ys))
+           -- , QC.testProperty "append" $
+           --     \(xs :: [Int]) (ys :: [Int]) ->
+           --       (xs ++ ys) === F.toList (mappend (V.fromList xs) (V.fromList ys))
                 
-           , QC.testProperty "!" $
-               \(xs :: [Int]) -> not (null xs) ==>
-                  let vec = V.fromList xs in
-                  forAll (choose (0, length xs - 1)) $ \i ->
-                  (xs !! i) === (vec V.! i)
+           -- , QC.testProperty "!" $
+           --     \(xs :: [Int]) -> not (null xs) ==>
+           --        let vec = V.fromList xs in
+           --        forAll (choose (0, length xs - 1)) $ \i ->
+           --        (xs !! i) === (vec V.! i)
                                                             
-           , QC.testProperty "pop" $
-               \(xs :: [Int]) -> not (null xs) ==>
-                  ((init xs, last xs) === over _1 F.toList (V.pop (V.fromList xs))) 
+           -- , QC.testProperty "pop" $
+           --     \(xs :: [Int]) -> not (null xs) ==>
+           --        ((init xs, last xs) === over _1 F.toList (V.pop (V.fromList xs))) 
          
-           , QC.testProperty "map" $
-               \(xs :: [Int]) (f :: Fun Int Int) ->
-                 map (apply f) xs === F.toList (V.map (apply f) (V.fromList xs))
+           -- , QC.testProperty "map" $
+           --     \(xs :: [Int]) (f :: Fun Int Int) ->
+           --       map (apply f) xs === F.toList (V.map (apply f) (V.fromList xs))
                 
-           , QC.testProperty "foldr" $
-               \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
-                 foldr (apply2 f) z xs === (V.foldr (apply2 f) z (V.fromList xs))
+           -- , QC.testProperty "foldr" $
+           --     \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
+           --       foldr (apply2 f) z xs === (V.foldr (apply2 f) z (V.fromList xs))
          
-           , QC.testProperty "rfoldr" $
-               \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
-                 foldr (apply2 f) z (reverse xs) ===
-                 (V.rfoldr (apply2 f) z (V.fromList xs))
+           -- , QC.testProperty "rfoldr" $
+           --     \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
+           --       foldr (apply2 f) z (reverse xs) ===
+           --       (V.rfoldr (apply2 f) z (V.fromList xs))
                 
-           , QC.testProperty "foldl'" $
-               \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
-                 foldl (apply2 f) z xs ===
-                 (V.foldl' (apply2 f) z (V.fromList xs))
+           -- , QC.testProperty "foldl'" $
+           --     \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
+           --       foldl (apply2 f) z xs ===
+           --       (V.foldl' (apply2 f) z (V.fromList xs))
                 
-           , QC.testProperty "rfoldl'" $
-               \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
-                 foldl (apply2 f) z (reverse xs) ===
-                 (V.rfoldl' (apply2 f) z (V.fromList xs))
+           -- , QC.testProperty "rfoldl'" $
+           --     \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
+           --       foldl (apply2 f) z (reverse xs) ===
+           --       (V.rfoldl' (apply2 f) z (V.fromList xs))
                 
-           , QC.testProperty "modify" $
-               \(xs :: [Int]) (f :: Fun Int Int) -> not (null xs) ==>
+           -- QC.testProperty "modify" $
+           --     \(xs :: [Int]) (f :: Fun Int Int) -> not (null xs) ==>
+           --       forAll (choose (0, length xs - 1)) $ \i ->
+           --       (xs& ix i %~ apply f) ===
+           --       (F.toList (V.modify (V.fromList xs) i (apply f)))
+
+           QC.testProperty "modify2" $
+           
+                 \(xs :: [Int]) -> xs /= [] ==>
+                 \(f :: Fun Int Int) ->
                  forAll (choose (0, length xs - 1)) $ \i ->
                  (xs& ix i %~ apply f) ===
-                 (F.toList (V.modify (V.fromList xs) i (apply f)))
-
-           , QC.testProperty "noCopyModify'#" $
-               \(xs :: [Int]) (f :: Fun Int Int) -> not (null xs) ==>
-                 forAll (choose (0, length xs - 1)) $ \i@(I# pi) ->
-                 (xs& ix i %~ apply f) ===
-                 (F.toList (V.noCopyModify'# (V.fromList xs) pi (apply f)))
+                 (F.toList (V.modify2 (V.fromList xs) i (apply f)))                 
                  
-           , localOption (QuickCheckMaxSize 200) $ QC.testProperty "append" $
-               \(xs :: [Int]) (ys :: [Int]) ->
-               (xs ++ ys) === F.toList (V.fromList xs `mappend` V.fromList ys)
+
+           -- , QC.testProperty "noCopyModify'#" $
+           --     \(xs :: [Int]) (f :: Fun Int Int) -> not (null xs) ==>
+           --       forAll (choose (0, length xs - 1)) $ \i@(I# pi) ->
+           --       (xs& ix i %~ apply f) ===
+           --       (F.toList (V.noCopyModify'# (V.fromList xs) pi (apply f)))
+                 
+           -- , localOption (QuickCheckMaxSize 200) $ QC.testProperty "append" $
+           --     \(xs :: [Int]) (ys :: [Int]) ->
+           --     (xs ++ ys) === F.toList (V.fromList xs `mappend` V.fromList ys)
                
-           , QC.testProperty "reverse" $
-             \(xs :: [Int]) -> reverse xs === F.toList (V.reverse (V.fromList xs))
+           -- , QC.testProperty "reverse" $
+           --   \(xs :: [Int]) -> reverse xs === F.toList (V.reverse (V.fromList xs))
 
-           , QC.testProperty "inits" $
-             \(xs :: [Int]) -> reverse (inits xs) === map F.toList (V.inits (V.fromList xs))
+           -- , QC.testProperty "inits" $
+           --   \(xs :: [Int]) -> reverse (inits xs) === map F.toList (V.inits (V.fromList xs))
 
-           , QC.testProperty "revTails" $
-             \(xs :: [Int]) -> map reverse (tails xs)
-                               === map F.toList (V.revTails (V.fromList xs))
+           -- , QC.testProperty "revTails" $
+           --   \(xs :: [Int]) -> map reverse (tails xs)
+           --                     === map F.toList (V.revTails (V.fromList xs))
                                
            ]
 
@@ -239,3 +255,4 @@ main = defaultMain $ localOption (QuickCheckMaxSize 1000) $
 
 
                
+
