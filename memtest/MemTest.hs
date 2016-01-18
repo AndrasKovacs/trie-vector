@@ -21,6 +21,9 @@ import qualified Data.Sequence as S
 tvn :: Int -> ()
 tvn n = seq (TV.fromList [1..n]) ()
 
+tvn' :: Int -> ()
+tvn' n = seq (TV.snocFromList [1..n]) ()
+
 tuvn :: Int -> ()
 tuvn n = seq (TUV.fromList [1..n]) ()
 
@@ -36,7 +39,8 @@ hn n = seq (HM.fromList $ zip [0..n - 1] [0..n - 1]) ()
 sn :: Int -> ()
 sn n = seq (S.fromList [0..n]) ()
 
-main = pure ()
+main = do
+  print $ uvn 100000000
 
 
 

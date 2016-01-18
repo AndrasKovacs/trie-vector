@@ -119,44 +119,44 @@ main = defaultMainWith config [
      --    bench "1M"    $ whnf (benchIx (TV.unsafeIndex tv1M   )) r1M
      --    ]
      
-     bgroup "modify" [        
-        bench "10"    $ whnf (foldl' (\s k -> TV.modify s k (const 0)) tv10   ) r10,
-        bench "100"   $ whnf (foldl' (\s k -> TV.modify s k (const 0)) tv100  ) r100,
-        bench "1000"  $ whnf (foldl' (\s k -> TV.modify s k (const 0)) tv1000 ) r1000,
-        bench "10000" $ whnf (foldl' (\s k -> TV.modify s k (const 0)) tv10000) r10000,
-        bench "100k"  $ whnf (foldl' (\s k -> TV.modify s k (const 0)) tv100k ) r100k,
-        bench "1M"    $ whnf (foldl' (\s k -> TV.modify s k (const 0)) tv1M   ) r1M,
-        bench "10M"   $ whnf (foldl' (\s k -> TV.modify s k (const 0)) tv10M  ) r10M
-        ],
+     -- bgroup "modify" [        
+     --    bench "10"    $ whnf (foldl' (\s k -> TV.modify s k (const 0)) tv10   ) r10,
+     --    bench "100"   $ whnf (foldl' (\s k -> TV.modify s k (const 0)) tv100  ) r100,
+     --    bench "1000"  $ whnf (foldl' (\s k -> TV.modify s k (const 0)) tv1000 ) r1000,
+     --    bench "10000" $ whnf (foldl' (\s k -> TV.modify s k (const 0)) tv10000) r10000,
+     --    bench "100k"  $ whnf (foldl' (\s k -> TV.modify s k (const 0)) tv100k ) r100k,
+     --    bench "1M"    $ whnf (foldl' (\s k -> TV.modify s k (const 0)) tv1M   ) r1M,
+     --    bench "10M"   $ whnf (foldl' (\s k -> TV.modify s k (const 0)) tv10M  ) r10M
+     --    ],
 
-     bgroup "modify2" [        
-        bench "10"    $ whnf (foldl' (\s k -> TV.modify2 s k (const 0)) tv10   ) r10,
-        bench "100"   $ whnf (foldl' (\s k -> TV.modify2 s k (const 0)) tv100  ) r100,
-        bench "1000"  $ whnf (foldl' (\s k -> TV.modify2 s k (const 0)) tv1000 ) r1000,
-        bench "10000" $ whnf (foldl' (\s k -> TV.modify2 s k (const 0)) tv10000) r10000,
-        bench "100k"  $ whnf (foldl' (\s k -> TV.modify2 s k (const 0)) tv100k ) r100k,
-        bench "1M"    $ whnf (foldl' (\s k -> TV.modify2 s k (const 0)) tv1M   ) r1M,
-        bench "10M"   $ whnf (foldl' (\s k -> TV.modify2 s k (const 0)) tv10M  ) r10M
-        ]
+     -- bgroup "modify2" [        
+     --    bench "10"    $ whnf (foldl' (\s k -> TV.modify2 s k (const 0)) tv10   ) r10,
+     --    bench "100"   $ whnf (foldl' (\s k -> TV.modify2 s k (const 0)) tv100  ) r100,
+     --    bench "1000"  $ whnf (foldl' (\s k -> TV.modify2 s k (const 0)) tv1000 ) r1000,
+     --    bench "10000" $ whnf (foldl' (\s k -> TV.modify2 s k (const 0)) tv10000) r10000,
+     --    bench "100k"  $ whnf (foldl' (\s k -> TV.modify2 s k (const 0)) tv100k ) r100k,
+     --    bench "1M"    $ whnf (foldl' (\s k -> TV.modify2 s k (const 0)) tv1M   ) r1M,
+     --    bench "10M"   $ whnf (foldl' (\s k -> TV.modify2 s k (const 0)) tv10M  ) r10M
+     --    ]
 
      -- bgroup "fromList" [        
-     --    bench "10"    $ whnf TV.fromList r10,
-     --    bench "100"   $ whnf TV.fromList r100,
-     --    bench "1000"  $ whnf TV.fromList r1000,
-     --    bench "10000" $ whnf TV.fromList r10000,
-     --    bench "100k"  $ whnf TV.fromList r100k,
-     --    bench "1M"    $ whnf TV.fromList r1M,
-     --    bench "10M"   $ whnf TV.fromList r10M
+     --    bench "10"    $ whnf (TV.length . TV.fromList) r10,
+     --    bench "100"   $ whnf (TV.length . TV.fromList) r100,
+     --    bench "1000"  $ whnf (TV.length . TV.fromList) r1000,
+     --    bench "10000" $ whnf (TV.length . TV.fromList) r10000,
+     --    bench "100k"  $ whnf (TV.length . TV.fromList) r100k,
+     --    bench "1M"    $ whnf (TV.length . TV.fromList) r1M,
+     --    bench "10M"   $ whnf (TV.length . TV.fromList) r10M
      --    ],
 
      -- bgroup "safeFromList" [        
-     --    bench "10"    $ whnf TV.safeFromList r10,
-     --    bench "100"   $ whnf TV.safeFromList r100,
-     --    bench "1000"  $ whnf TV.safeFromList r1000,
-     --    bench "10000" $ whnf TV.safeFromList r10000,
-     --    bench "100k"  $ whnf TV.safeFromList r100k,
-     --    bench "1M"    $ whnf TV.safeFromList r1M,
-     --    bench "10M"   $ whnf TV.safeFromList r10M
+     --    bench "10"    $ whnf (TV.length . TV.snocFromList) r10,
+     --    bench "100"   $ whnf (TV.length . TV.snocFromList) r100,
+     --    bench "1000"  $ whnf (TV.length . TV.snocFromList) r1000,
+     --    bench "10000" $ whnf (TV.length . TV.snocFromList) r10000,
+     --    bench "100k"  $ whnf (TV.length . TV.snocFromList) r100k,
+     --    bench "1M"    $ whnf (TV.length . TV.snocFromList) r1M,
+     --    bench "10M"   $ whnf (TV.length . TV.snocFromList) r10M
      --    ]               
 
      ],

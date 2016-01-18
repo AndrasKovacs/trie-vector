@@ -1,0 +1,14 @@
+
+investigate + bench
+
+- small tail optimization: only keep n elements for some n < m in the tail and use out-of-line copy
+  - can be used all along the right edge of the trie as well
+
+- Drop "level" field from vector, instead recompute level with popcount from size
+
+- Variant of Vector that always has at least 1 element in tail
+
+- Find out why concatenation via bulk/optimized snoccing isn't effective
+
+
+

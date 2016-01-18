@@ -21,8 +21,8 @@ module Data.TrieVector (
     , modify#
     , unsafeModify#
     , noCopyModify'#
-    , modify2#
-    , modify2
+--    , modify2#
+--    , modify2
     , singleton
     , empty
     , Data.TrieVector.length
@@ -446,6 +446,7 @@ empty :: Vector a
 empty = Vector 0# 0# emptyAA emptyTail where
     !emptyAA   = AA.new 0# undefElem
     !emptyTail = A.new NODE_WIDTH undefElem
+{-# NOINLINE empty #-}    
 
 singleton :: a -> Vector a
 singleton a = Vector 1# 0# (_init empty) (init1A a)
@@ -528,114 +529,114 @@ nFields addr n = go 0# where
 {-# INLINE nFields #-}
 
 
-{-# INLINE copyPath #-}
-copyPath ::
-  forall s a.                                    
-  Int# -> Int#
-  -> AArray -> State# s
-  -> (# State# s, AArray, Int#, Array a #)
-             -- (state, root, index at bottom, bottom)
-copyPath level i arr s = let
+-- {-# INLINE copyPath #-}
+-- copyPath ::
+--   forall s a.                                    
+--   Int# -> Int#
+--   -> AArray -> State# s
+--   -> (# State# s, AArray, Int#, Array a #)
+--              -- (state, root, index at bottom, bottom)
+-- copyPath level i arr s = let
   
-  -- number of nodes  
-  nodesNum = quotInt# level KEY_BITS +# 1#   
-  -- path size in words  
-  pathSize = nodesNum *# NODE_SIZE
+--   -- number of nodes  
+--   nodesNum = quotInt# level KEY_BITS +# 1#   
+--   -- path size in words  
+--   pathSize = nodesNum *# NODE_SIZE
   
-  -- size of bytearray data of the whole path
-  -- NOTE: BYTE_ARR_HEADER_SIZE musn't be smaller than NODE_SIZE
-  byteArrSize = (pathSize -# BYTE_ARR_HEADER_SIZE) *# SIZEOF_HSWORD# in
+--   -- size of bytearray data of the whole path
+--   -- NOTE: BYTE_ARR_HEADER_SIZE musn't be smaller than NODE_SIZE
+--   byteArrSize = (pathSize -# BYTE_ARR_HEADER_SIZE) *# SIZEOF_HSWORD# in
 
-  case newByteArray# byteArrSize s of
-    (# s, path #) -> let
+--   case newByteArray# byteArrSize s of
+--     (# s, path #) -> let
       
-      src1   = arr
-      level1 = level      
-      dst1   = unsafeCoerce# path :: Addr# in      
-      case copyNode (unsafeCoerce# src1) dst1 s of
-          s -> case level1 of
-            0# -> (# s, unsafeCoerce# dst1, index i level1, unsafeCoerce# dst1 #)
-            _  -> let
+--       src1   = arr
+--       level1 = level      
+--       dst1   = unsafeCoerce# path :: Addr# in      
+--       case copyNode (unsafeCoerce# src1) dst1 s of
+--           s -> case level1 of
+--             0# -> (# s, unsafeCoerce# dst1, index i level1, unsafeCoerce# dst1 #)
+--             _  -> let
               
-              src2   = AA.index (unsafeCoerce# src1) (index i level1)
-              level2 = next level1
-              dst2   = plusAddr# dst1 (SIZEOF_HSWORD# *# NODE_SIZE) in
-              case AA.write (unsafeCoerce# dst1) (index i level1) (unsafeCoerce# dst2) s of
-                s -> case copyNode (unsafeCoerce# src2) dst2 s of
-                  s -> case level2 of
-                    0# -> (# s, unsafeCoerce# dst1, index i level2, unsafeCoerce# dst2 #)
-                    _  -> let
+--               src2   = AA.index (unsafeCoerce# src1) (index i level1)
+--               level2 = next level1
+--               dst2   = plusAddr# dst1 (SIZEOF_HSWORD# *# NODE_SIZE) in
+--               case AA.write (unsafeCoerce# dst1) (index i level1) (unsafeCoerce# dst2) s of
+--                 s -> case copyNode (unsafeCoerce# src2) dst2 s of
+--                   s -> case level2 of
+--                     0# -> (# s, unsafeCoerce# dst1, index i level2, unsafeCoerce# dst2 #)
+--                     _  -> let
 
-                      src3   = AA.index (unsafeCoerce# src2) (index i level2)
-                      level3 = next level2
-                      dst3   = plusAddr# dst2 (SIZEOF_HSWORD# *# NODE_SIZE) in
-                      case AA.write (unsafeCoerce# dst2) (index i level2) (unsafeCoerce# dst3) s of
-                        s -> case copyNode (unsafeCoerce# src3) dst3 s of
-                          s -> case level3 of
-                            0# -> (# s, unsafeCoerce# dst1, index i level3, unsafeCoerce# dst3 #)
-                            _  -> let
+--                       src3   = AA.index (unsafeCoerce# src2) (index i level2)
+--                       level3 = next level2
+--                       dst3   = plusAddr# dst2 (SIZEOF_HSWORD# *# NODE_SIZE) in
+--                       case AA.write (unsafeCoerce# dst2) (index i level2) (unsafeCoerce# dst3) s of
+--                         s -> case copyNode (unsafeCoerce# src3) dst3 s of
+--                           s -> case level3 of
+--                             0# -> (# s, unsafeCoerce# dst1, index i level3, unsafeCoerce# dst3 #)
+--                             _  -> let
 
-                             src4   = AA.index (unsafeCoerce# src3) (index i level3)
-                             level4 = next level3
-                             dst4   = plusAddr# dst3 (SIZEOF_HSWORD# *# NODE_SIZE) in
-                             case AA.write (unsafeCoerce# dst3) (index i level3) (unsafeCoerce# dst4) s of
-                               s -> case copyNode (unsafeCoerce# src4) dst4 s of
-                                 s -> case level4 of
-                                   0# -> (# s, unsafeCoerce# dst1, index i level4, unsafeCoerce# dst4 #)
-                                   _  -> let
+--                              src4   = AA.index (unsafeCoerce# src3) (index i level3)
+--                              level4 = next level3
+--                              dst4   = plusAddr# dst3 (SIZEOF_HSWORD# *# NODE_SIZE) in
+--                              case AA.write (unsafeCoerce# dst3) (index i level3) (unsafeCoerce# dst4) s of
+--                                s -> case copyNode (unsafeCoerce# src4) dst4 s of
+--                                  s -> case level4 of
+--                                    0# -> (# s, unsafeCoerce# dst1, index i level4, unsafeCoerce# dst4 #)
+--                                    _  -> let
 
-                                    src5   = AA.index (unsafeCoerce# src4) (index i level4)
-                                    level5 = next level4
-                                    dst5   = plusAddr# dst4 (SIZEOF_HSWORD# *# NODE_SIZE) in
-                                    case AA.write (unsafeCoerce# dst4) (index i level4) (unsafeCoerce# dst5) s of
-                                      s -> case copyNode (unsafeCoerce# src5) dst5 s of
-                                        s -> case level5 of
-                                          0# -> (# s, unsafeCoerce# dst1, index i level5, unsafeCoerce# dst5 #)
-                                          _  -> let
+--                                     src5   = AA.index (unsafeCoerce# src4) (index i level4)
+--                                     level5 = next level4
+--                                     dst5   = plusAddr# dst4 (SIZEOF_HSWORD# *# NODE_SIZE) in
+--                                     case AA.write (unsafeCoerce# dst4) (index i level4) (unsafeCoerce# dst5) s of
+--                                       s -> case copyNode (unsafeCoerce# src5) dst5 s of
+--                                         s -> case level5 of
+--                                           0# -> (# s, unsafeCoerce# dst1, index i level5, unsafeCoerce# dst5 #)
+--                                           _  -> let
 
-                                           src6   = AA.index (unsafeCoerce# src5) (index i level5)
-                                           level6 = next level5
-                                           dst6   = plusAddr# dst5 (SIZEOF_HSWORD# *# NODE_SIZE) in
-                                           case AA.write (unsafeCoerce# dst5) (index i level5) (unsafeCoerce# dst6) s of
-                                             s -> case copyNode (unsafeCoerce# src6) dst6 s of
-                                               s -> case level6 of
-                                                 0# -> (# s, unsafeCoerce# dst1, index i level6, unsafeCoerce# dst6 #)
-                                                 _  -> let
+--                                            src6   = AA.index (unsafeCoerce# src5) (index i level5)
+--                                            level6 = next level5
+--                                            dst6   = plusAddr# dst5 (SIZEOF_HSWORD# *# NODE_SIZE) in
+--                                            case AA.write (unsafeCoerce# dst5) (index i level5) (unsafeCoerce# dst6) s of
+--                                              s -> case copyNode (unsafeCoerce# src6) dst6 s of
+--                                                s -> case level6 of
+--                                                  0# -> (# s, unsafeCoerce# dst1, index i level6, unsafeCoerce# dst6 #)
+--                                                  _  -> let
 
-                                                  src7   = AA.index (unsafeCoerce# src6) (index i level6)
-                                                  level7 = next level6
-                                                  dst7   = plusAddr# dst6 (SIZEOF_HSWORD# *# NODE_SIZE) in
-                                                  case AA.write (unsafeCoerce# dst6) (index i level6) (unsafeCoerce# dst7) s of
-                                                    s -> case copyNode (unsafeCoerce# src7) dst7 s of
-                                                      s -> case level7 of
-                                                        0# -> (# s, unsafeCoerce# dst1, index i level7, unsafeCoerce# dst7 #)
-                                                        _  -> error "way too big, sry"    
+--                                                   src7   = AA.index (unsafeCoerce# src6) (index i level6)
+--                                                   level7 = next level6
+--                                                   dst7   = plusAddr# dst6 (SIZEOF_HSWORD# *# NODE_SIZE) in
+--                                                   case AA.write (unsafeCoerce# dst6) (index i level6) (unsafeCoerce# dst7) s of
+--                                                     s -> case copyNode (unsafeCoerce# src7) dst7 s of
+--                                                       s -> case level7 of
+--                                                         0# -> (# s, unsafeCoerce# dst1, index i level7, unsafeCoerce# dst7 #)
+--                                                         _  -> error "way too big, sry"    
                                                
 
-modify2# :: forall a. Vector a -> Int# -> (a -> a) -> Vector a
-modify2# (Vector size level init tail) i f = case i >=# 0# of
-  1# -> let
-      tailSize = andI# size KEY_MASK
-      initSize = size -# tailSize
-      in case i <# initSize of
-          1# -> let
-            init' = AA.run (\s ->
-              case copyPath level i init s of
-                (# s, init', bottomIx, bottom #) -> case A.unsafeThaw bottom s of
-                  (# s, bottom #) -> case A.read bottom bottomIx s of
-                    (# s, a #) -> case A.write bottom bottomIx (f a) s of
-                      s -> case A.unsafeFreeze bottom s of
-                        (# s, _ #) -> (# s, init' #)) 
-            in Vector size level init' tail
-          _  -> case i <# size of
-              1# -> Vector size level init (A.modify NODE_WIDTH tail (i -# initSize) f)
-              _  -> boundsError        
-  _  -> boundsError
-{-# INLINE modify2# #-}
+-- modify2# :: forall a. Vector a -> Int# -> (a -> a) -> Vector a
+-- modify2# (Vector size level init tail) i f = case i >=# 0# of
+--   1# -> let
+--       tailSize = andI# size KEY_MASK
+--       initSize = size -# tailSize
+--       in case i <# initSize of
+--           1# -> let
+--             init' = AA.run (\s ->
+--               case copyPath level i init s of
+--                 (# s, init', bottomIx, bottom #) -> case A.unsafeThaw bottom s of
+--                   (# s, bottom #) -> case A.read bottom bottomIx s of
+--                     (# s, a #) -> case A.write bottom bottomIx (f a) s of
+--                       s -> case A.unsafeFreeze bottom s of
+--                         (# s, _ #) -> (# s, init' #)) 
+--             in Vector size level init' tail
+--           _  -> case i <# size of
+--               1# -> Vector size level init (A.modify NODE_WIDTH tail (i -# initSize) f)
+--               _  -> boundsError        
+--   _  -> boundsError
+-- {-# INLINE modify2# #-}
 
-modify2 :: forall a. Vector a -> Int -> (a -> a) -> Vector a
-modify2 v (I# i) f = modify2# v i f
-{-# INLINE modify2 #-}
+-- modify2 :: forall a. Vector a -> Int -> (a -> a) -> Vector a
+-- modify2 v (I# i) f = modify2# v i f
+-- {-# INLINE modify2 #-}
                     
 
 #undef NODE_WIDTH 

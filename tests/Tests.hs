@@ -126,8 +126,11 @@ main = defaultMain $ localOption (QuickCheckMaxSize 1000) $
            --   QC.testProperty "length/fromList" $
            --     \(xs :: [Int]) -> length xs === V.length (V.fromList xs)
          
-           -- , QC.testProperty "toList/fromList" $ 
-           --     \(xs :: [Int]) -> xs === F.toList (V.fromList xs)
+             QC.testProperty "toList/fromList" $ 
+               \(xs :: [Int]) -> xs === F.toList (V.fromList xs)
+
+           , QC.testProperty "toList/snocFromList" $ 
+               \(xs :: [Int]) -> xs === F.toList (V.snocFromList xs)       
                                 
            -- , QC.testProperty "snoc" $
            --     \(xs :: [Int]) (x :: Int) ->
@@ -176,13 +179,13 @@ main = defaultMain $ localOption (QuickCheckMaxSize 1000) $
            --       (xs& ix i %~ apply f) ===
            --       (F.toList (V.modify (V.fromList xs) i (apply f)))
 
-           QC.testProperty "modify2" $
+           -- QC.testProperty "modify2" $
            
-                 \(xs :: [Int]) -> xs /= [] ==>
-                 \(f :: Fun Int Int) ->
-                 forAll (choose (0, length xs - 1)) $ \i ->
-                 (xs& ix i %~ apply f) ===
-                 (F.toList (V.modify2 (V.fromList xs) i (apply f)))                 
+           --       \(xs :: [Int]) -> xs /= [] ==>
+           --       \(f :: Fun Int Int) ->
+           --       forAll (choose (0, length xs - 1)) $ \i ->
+           --       (xs& ix i %~ apply f) ===
+           --       (F.toList (V.modify2 (V.fromList xs) i (apply f)))                 
                  
 
            -- , QC.testProperty "noCopyModify'#" $
