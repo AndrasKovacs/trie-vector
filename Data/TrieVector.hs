@@ -21,6 +21,7 @@ module Data.TrieVector (
     , modify#
     , unsafeModify#
     , noCopyModify'#
+    , noCopyModify'
 --    , modify2#
 --    , modify2
     , singleton
@@ -426,6 +427,9 @@ noCopyModify'# v@(Vector size level init tail) i f = case i >=# 0# of
   _  -> boundsError
 {-# INLINE noCopyModify'# #-}
 
+noCopyModify' :: forall a. Vector a -> Int -> (a -> a) -> Vector a
+noCopyModify' v (I# i) f = noCopyModify'# v i f
+{-# INLINE noCopyModify' #-}
 
 reverse :: Vector a -> Vector a
 reverse v = rfoldl' snoc empty v
