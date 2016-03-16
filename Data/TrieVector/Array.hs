@@ -32,7 +32,8 @@ module Data.TrieVector.Array (
 import qualified Data.TrieVector.ArrayPrimWrap as A
 
 import Prelude hiding (foldr, map)
-import GHC.Prim 
+import GHC.Prim
+import GHC.Prim.Array
 
 type Array a = A.Array a
 type MArray s a = A.MArray s a
