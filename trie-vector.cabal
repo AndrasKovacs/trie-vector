@@ -73,7 +73,7 @@ benchmark main
   ghc-options:
     -Wall -O2 -rtsopts -fllvm
     -fno-warn-name-shadowing -fno-warn-missing-signatures
-    -fno-warn-unused-binds
+    -fno-warn-unused-binds -fno-warn-unused-imports
 
 benchmark copy
   default-language: Haskell2010
@@ -100,18 +100,18 @@ benchmark copy
     -fno-warn-name-shadowing -fno-warn-missing-signatures
     -fno-warn-unused-binds
 
-benchmark mem-usage
+benchmark misc
   default-language: Haskell2010
   type: exitcode-stdio-1.0
 
   hs-source-dirs: benchmarks
-  main-is: MemUsage.hs
+  main-is: Misc.hs
 
   build-depends:
-    base, ghc-prim, primitive, random, vector,
+    trie-vector, base, ghc-prim, primitive, random, vector,
     containers, unordered-containers
 
   ghc-options:
-    -Wall -O2 -fllvm -with-rtsopts="-s"
+    -Wall -O2 -fllvm -with-rtsopts=-s
 
 

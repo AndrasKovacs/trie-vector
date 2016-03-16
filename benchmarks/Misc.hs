@@ -1,5 +1,7 @@
 {-# LANGUAGE MagicHash, BangPatterns #-}
 
+{-# OPTIONS_GHC -fno-warn-unused-imports -fno-warn-unused-binds #-}
+
 import GHC.Types
 import GHC.Prim
 
@@ -40,7 +42,7 @@ sn :: Int -> ()
 sn n = seq (S.fromList [0..n]) ()
 
 main = do
-  print $ uvn 100000000
+  print $ tvn' 100000
 
 
 

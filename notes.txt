@@ -1,14 +1,19 @@
+TODO:
 
-investigate + bench
-
-- small tail optimization: only keep n elements for some n < m in the tail and use out-of-line copy
-  - can be used all along the right edge of the trie as well
-
+- small tail optimization: only keep n elements for some n < m in the tail arrays
+  and use out-of-line copy
 - Drop "level" field from vector, instead recompute level with popcount from size
-
-- Variant of Vector that always has at least 1 element in tail
-
 - Find out why concatenation via bulk/optimized snoccing isn't effective
+- Find out why "fromList" criterion bench yields nonsense
+- Implement popping in two ops: a lookup for last elem and a pop that only returns
+  the popped array. This lets us have a lazy Snoc view.
+- Implement traversal and folding with State# threading
+  - Use it to implement faster concatenation
+- Add SPECIALIZED implementations for mapM_, sequence_ etc.
+- Add SPECIALIZED implementations for non-method Data.Foldable functions
+- Add TrieList wrapper around TrieVector, which reverses indexing, so
+  we can cons instead of snoc.
 
-
+- Implement variant of Vector that always has at least 1 element in tail
+  (possibly make pull into master)
 
