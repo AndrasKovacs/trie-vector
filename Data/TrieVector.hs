@@ -174,6 +174,7 @@ snocAA arr _    _ 0#    _    = arr
 snocAA arr mask i level init = case andI# i mask of
   0# -> init1AA (snocAA arr (nextMask mask) i (next level) (_init empty))
   _  -> AA.modify NODE_WIDTH init (index i level) (snocAA arr (nextMask mask) i (next level))
+{-# INLINE snocAA #-}  
 
 snoc :: forall a. Vector a -> a -> Vector a
 snoc (Vector size level init tail) v = let

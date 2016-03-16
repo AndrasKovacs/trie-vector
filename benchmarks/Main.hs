@@ -15,16 +15,38 @@ import qualified Data.Map.Strict as M
 
 import Data.List
 
-randix :: Int -> [Int]
-randix size = take 100 $ randomRs (0, size - 1) (mkStdGen 1)
+ixSampleSize = 100 :: Int
 
-r10    = randix 10
-r100   = randix 100
-r1000  = randix 1000
-r10000 = randix 10000
-r100k  = randix 100000
-r1M    = randix 1000000
-r10M   = randix 10000000
+randix :: Int -> [Int]
+randix size = take ixSampleSize $ randomRs (0, size - 1) (mkStdGen 1)
+
+randint :: Int -> [Int]
+randint n = take n $ randoms (mkStdGen 1)
+
+rix10    = randix 10
+rix100   = randix 100
+rix1000  = randix 1000
+rix10000 = randix 10000
+rix100k  = randix 100000
+rix1M    = randix 1000000
+rix10M   = randix 10000000
+
+r10    = randint 10
+r100   = randint 100
+r1000  = randint 1000
+r10000 = randint 10000
+r100k  = randint 100000
+r1M    = randint 1000000
+r10M   = randint 10000000
+
+zero10    = replicate 10        (0 :: Int)
+zero100   = replicate 100       (0 :: Int)
+zero1000  = replicate 1000      (0 :: Int)
+zero10000 = replicate 10000     (0 :: Int)
+zero100k  = replicate 100000    (0 :: Int)
+zero1M    = replicate 1000000   (0 :: Int)
+zero10M   = replicate 10000000  (0 :: Int)
+
 
 tvn :: Int -> TV.Vector Int
 tvn n = TV.fromList [1..n]
@@ -56,8 +78,11 @@ s1M    = sn 1000000
 
 v10    = vn 10
 v100   = vn 100
+v1000  = vn 1000
 v10000 = vn 10000
+v100k  = vn 100000
 v1M    = vn 1000000
+v10M   = vn 10000000
 
 tv10    = tvn 10
 tv100   = tvn 100
@@ -79,122 +104,133 @@ tuv10M   = tuvn 10000000
 benchIx :: (Int -> a) -> [Int] -> ()
 benchIx f = foldr (\x acc -> seq (f x) acc) ()
 {-# INLINE benchIx #-}
- 
 
 config :: Config
-config = defaultConfig
+config = defaultConfig {timeLimit = 3}
 
 main :: IO ()
 main = defaultMainWith config [
   bgroup "Boxed" [
 
      -- bgroup "index" [
-     --    bench "10"    $ whnf (benchIx ((TV.!) tv10   )) r10,
-     --    bench "100"   $ whnf (benchIx ((TV.!) tv100  )) r100,
-     --    bench "1000"  $ whnf (benchIx ((TV.!) tv1000 )) r100,
-     --    bench "10000" $ whnf (benchIx ((TV.!) tv10000)) r10000,
-     --    bench "100k"  $ whnf (benchIx ((TV.!) tv100k )) r100k,
-     --    bench "1M"    $ whnf (benchIx ((TV.!) tv1M   )) r1M,
-     --    bench "10M"   $ whnf (benchIx ((TV.!) tv10M  )) r10M
-     --    ]
-     
-
-     -- bgroup "unsafeIndex" [
-     --    bench "10"    $ whnf (benchIx (TV.unsafeIndex tv10   )) r10,
-     --    bench "100"   $ whnf (benchIx (TV.unsafeIndex tv100  )) r100,
-     --    bench "1000"  $ whnf (benchIx (TV.unsafeIndex tv1000 )) r100,
-     --    bench "10000" $ whnf (benchIx (TV.unsafeIndex tv10000)) r10000,
-     --    bench "100k"  $ whnf (benchIx (TV.unsafeIndex tv100k )) r100k,
-     --    bench "1M"    $ whnf (benchIx (TV.unsafeIndex tv1M   )) r1M,
-     --    bench "10M"   $ whnf (benchIx (TV.unsafeIndex tv10M  )) r10M
-     --    ]
+     --    bench "10"    $ whnf (benchIx ((TV.!) tv10   )) rix10,
+     --    bench "100"   $ whnf (benchIx ((TV.!) tv100  )) rix100,
+     --    bench "1000"  $ whnf (benchIx ((TV.!) tv1000 )) rix100,
+     --    bench "10000" $ whnf (benchIx ((TV.!) tv10000)) rix10000,
+     --    bench "100k"  $ whnf (benchIx ((TV.!) tv100k )) rix100k,
+     --    bench "1M"    $ whnf (benchIx ((TV.!) tv1M   )) rix1M,
+     --    bench "10M"   $ whnf (benchIx ((TV.!) tv10M  )) rix10M
+     --    ]     
      
      -- bgroup "modify" [        
-     --    bench "10"    $ whnf (foldl' (\s k -> TV.modify s k id) tv10   ) r10,
-     --    bench "100"   $ whnf (foldl' (\s k -> TV.modify s k id) tv100  ) r100,
-     --    bench "1000"  $ whnf (foldl' (\s k -> TV.modify s k id) tv1000 ) r1000,
-     --    bench "10000" $ whnf (foldl' (\s k -> TV.modify s k id) tv10000) r10000,
-     --    bench "100k"  $ whnf (foldl' (\s k -> TV.modify s k id) tv100k ) r100k,
-     --    bench "1M"    $ whnf (foldl' (\s k -> TV.modify s k id) tv1M   ) r1M,
-     --    bench "10M"   $ whnf (foldl' (\s k -> TV.modify s k id) tv10M  ) r10M
+     --    bench "10"    $ whnf (foldl' (\s k -> TV.modify s k id) tv10   ) rix10,
+     --    bench "100"   $ whnf (foldl' (\s k -> TV.modify s k id) tv100  ) rix100,
+     --    bench "1000"  $ whnf (foldl' (\s k -> TV.modify s k id) tv1000 ) rix1000,
+     --    bench "10000" $ whnf (foldl' (\s k -> TV.modify s k id) tv10000) rix10000,
+     --    bench "100k"  $ whnf (foldl' (\s k -> TV.modify s k id) tv100k ) rix100k,
+     --    bench "1M"    $ whnf (foldl' (\s k -> TV.modify s k id) tv1M   ) rix1M,
+     --    bench "10M"   $ whnf (foldl' (\s k -> TV.modify s k id) tv10M  ) rix10M
      --    ],
 
-     -- bgroup "modify2" [        
-     --    bench "10"    $ whnf (foldl' (\s k -> TV.noCopyModify' s k id) tv10   ) r10,
-     --    bench "100"   $ whnf (foldl' (\s k -> TV.noCopyModify' s k id) tv100  ) r100,
-     --    bench "1000"  $ whnf (foldl' (\s k -> TV.noCopyModify' s k id) tv1000 ) r1000,
-     --    bench "10000" $ whnf (foldl' (\s k -> TV.noCopyModify' s k id) tv10000) r10000,
-     --    bench "100k"  $ whnf (foldl' (\s k -> TV.noCopyModify' s k id) tv100k ) r100k,
-     --    bench "1M"    $ whnf (foldl' (\s k -> TV.noCopyModify' s k id) tv1M   ) r1M,
-     --    bench "10M"   $ whnf (foldl' (\s k -> TV.noCopyModify' s k id) tv10M  ) r10M
-     --    ]
+     -- bgroup "noCopyModify" [        
+     --    bench "10"    $ whnf (foldl' (\s k -> TV.noCopyModify' s k id) tv10   ) rix10,
+     --    bench "100"   $ whnf (foldl' (\s k -> TV.noCopyModify' s k id) tv100  ) rix100,
+     --    bench "1000"  $ whnf (foldl' (\s k -> TV.noCopyModify' s k id) tv1000 ) rix1000,
+     --    bench "10000" $ whnf (foldl' (\s k -> TV.noCopyModify' s k id) tv10000) rix10000,
+     --    bench "100k"  $ whnf (foldl' (\s k -> TV.noCopyModify' s k id) tv100k ) rix100k,
+     --    bench "1M"    $ whnf (foldl' (\s k -> TV.noCopyModify' s k id) tv1M   ) rix1M,
+     --    bench "10M"   $ whnf (foldl' (\s k -> TV.noCopyModify' s k id) tv10M  ) rix10M
+     --    ],
 
-     bgroup "fromList" [        
-        -- bench "10"    $ whnf TV.fromList r10,
-        -- bench "100"   $ whnf TV.fromList r100,
-        bench "1000"  $ whnf TV.fromList r1000,
-        bench "10000" $ whnf TV.fromList r10000,
-        bench "100k"  $ whnf TV.fromList r100k,
-        bench "1M"    $ whnf TV.fromList r1M,
-        bench "10M"   $ whnf TV.fromList r10M
-        ],
+     bgroup "snoc" [        
+        bench "10"    $ whnf (foldl' TV.snoc tv10   ) rix10,
+        bench "100"   $ whnf (foldl' TV.snoc tv100  ) rix100,
+        bench "1000"  $ whnf (foldl' TV.snoc tv1000 ) rix1000,
+        bench "10000" $ whnf (foldl' TV.snoc tv10000) rix10000,
+        bench "100k"  $ whnf (foldl' TV.snoc tv100k ) rix100k,
+        bench "1M"    $ whnf (foldl' TV.snoc tv1M   ) rix1M,
+        bench "10M"   $ whnf (foldl' TV.snoc tv10M  ) rix10M
+        ]
 
-     bgroup "safeFromList" [        
-        -- bench "10"    $ whnf TV.snocFromList r10,
-        -- bench "100"   $ whnf TV.snocFromList r100,
-        bench "1000"  $ whnf TV.snocFromList r1000,
-        bench "10000" $ whnf TV.snocFromList r10000,
-        bench "100k"  $ whnf TV.snocFromList r100k,
-        bench "1M"    $ whnf TV.snocFromList r1M,
-        bench "10M"   $ whnf TV.snocFromList r10M
-        ]               
+     -- bgroup "fromList" [        
+     --    bench "10"    $ whnf TV.fromList zero10,
+     --    bench "100"   $ whnf TV.fromList zero100,
+     --    bench "1000"  $ whnf TV.fromList zero1000,
+     --    bench "10000" $ whnf TV.fromList zero10000,
+     --    bench "100k"  $ whnf TV.fromList zero100k,
+     --    bench "1M"    $ whnf TV.fromList zero1M,
+     --    bench "10M"   $ whnf TV.fromList zero10M
+     --    ],
+
+     -- bgroup "safeFromList" [        
+     --    bench "10"    $ whnf TV.snocFromList zero10,
+     --    bench "100"   $ whnf TV.snocFromList zero100,
+     --    bench "1000"  $ whnf TV.snocFromList zero1000,
+     --    bench "10000" $ whnf TV.snocFromList zero10000,
+     --    bench "100k"  $ whnf TV.snocFromList zero100k,
+     --    bench "1M"    $ whnf TV.snocFromList zero1M,
+     --    bench "10M"   $ whnf TV.snocFromList zero10M
+     --    ]               
 
      ],
 
   bgroup "BoxedVector" [
+     -- bgroup "fromList" [        
+     --    bench "10"    $ whnf V.fromList zero10,
+     --    bench "100"   $ whnf V.fromList zero100,
+     --    bench "1000"  $ whnf V.fromList zero1000,
+     --    bench "10000" $ whnf V.fromList zero10000,
+     --    bench "100k"  $ whnf V.fromList zero100k,
+     --    bench "1M"    $ whnf V.fromList zero1M,
+     --    bench "10M"   $ whnf V.fromList zero10M
+     --    ],
+     
      -- bgroup "unsafeIndex" [
-     --    bench "10"    $ whnf (benchIx (V.unsafeIndex v10   )) r10,
-     --    bench "100"   $ whnf (benchIx (V.unsafeIndex v100  )) r100,
-     --    bench "10000" $ whnf (benchIx (V.unsafeIndex v10000)) r10000,
-     --    bench "1M"    $ whnf (benchIx (V.unsafeIndex v1M   )) r1M
+     --    bench "10"    $ whnf (benchIx (V.unsafeIndex v10   )) rix10,
+     --    bench "100"   $ whnf (benchIx (V.unsafeIndex v100  )) rix100,
+     --    bench "10000" $ whnf (benchIx (V.unsafeIndex v10000)) rix10000,
+     --    bench "1M"    $ whnf (benchIx (V.unsafeIndex v1M   )) rix1M
      --    ],
 
      -- bgroup "index" [
-     --    bench "10"    $ whnf (benchIx ((V.!) v10   )) r10,
-     --    bench "100"   $ whnf (benchIx ((V.!) v100  )) r100,
-     --    bench "10000" $ whnf (benchIx ((V.!) v10000)) r10000,
-     --    bench "1M"    $ whnf (benchIx ((V.!) v1M   )) r1M
-     --    ]
+     --    bench "10"    $ whnf (benchIx ((V.!) v10   )) rix10,
+     --    bench "100"   $ whnf (benchIx ((V.!) v100  )) rix100,
+     --    bench "1000"  $ whnf (benchIx ((V.!) v1000 )) rix100,
+     --    bench "10000" $ whnf (benchIx ((V.!) v10000)) rix10000,
+     --    bench "100k"  $ whnf (benchIx ((V.!) v100k )) rix100k,
+     --    bench "1M"    $ whnf (benchIx ((V.!) v1M   )) rix1M,
+     --    bench "10M"   $ whnf (benchIx ((V.!) v10M  )) rix10M
+     --    ]           
      ],
 
   bgroup "Unboxed" [
 
      -- bgroup "index" [
-     --    bench "10"    $ whnf (benchIx ((TUV.!) tuv10   )) r10,
-     --    bench "100"   $ whnf (benchIx ((TUV.!) tuv100  )) r100,
-     --    bench "1000"  $ whnf (benchIx ((TUV.!) tuv1000 )) r100,
-     --    bench "10000" $ whnf (benchIx ((TUV.!) tuv10000)) r10000,
-     --    bench "100k"  $ whnf (benchIx ((TUV.!) tuv100k )) r100k,
-     --    bench "1M"    $ whnf (benchIx ((TUV.!) tuv1M   )) r1M,
-     --    bench "10M"   $ whnf (benchIx ((TUV.!) tuv10M  )) r10M
+     --    bench "10"    $ whnf (benchIx ((TUV.!) tuv10   )) rix10,
+     --    bench "100"   $ whnf (benchIx ((TUV.!) tuv100  )) rix100,
+     --    bench "1000"  $ whnf (benchIx ((TUV.!) tuv1000 )) rix100,
+     --    bench "10000" $ whnf (benchIx ((TUV.!) tuv10000)) rix10000,
+     --    bench "100k"  $ whnf (benchIx ((TUV.!) tuv100k )) rix100k,
+     --    bench "1M"    $ whnf (benchIx ((TUV.!) tuv1M   )) rix1M,
+     --    bench "10M"   $ whnf (benchIx ((TUV.!) tuv10M  )) rix10M
      --    ],
 
      -- bgroup "unsafeIndex" [
-     --    bench "10"    $ whnf (benchIx (TUV.unsafeIndex tuv10   )) r10,
-     --    bench "100"   $ whnf (benchIx (TUV.unsafeIndex tuv100  )) r100,
-     --    bench "1000"  $ whnf (benchIx (TUV.unsafeIndex tuv1000 )) r100,
-     --    bench "10000" $ whnf (benchIx (TUV.unsafeIndex tuv10000)) r10000,
-     --    bench "100k"  $ whnf (benchIx (TUV.unsafeIndex tuv100k )) r100k,
-     --    bench "1M"    $ whnf (benchIx (TUV.unsafeIndex tuv1M   )) r1M,
-     --    bench "10M"   $ whnf (benchIx (TUV.unsafeIndex tuv10M  )) r10M
+     --    bench "10"    $ whnf (benchIx (TUV.unsafeIndex tuv10   )) rix10,
+     --    bench "100"   $ whnf (benchIx (TUV.unsafeIndex tuv100  )) rix100,
+     --    bench "1000"  $ whnf (benchIx (TUV.unsafeIndex tuv1000 )) rix100,
+     --    bench "10000" $ whnf (benchIx (TUV.unsafeIndex tuv10000)) rix10000,
+     --    bench "100k"  $ whnf (benchIx (TUV.unsafeIndex tuv100k )) rix100k,
+     --    bench "1M"    $ whnf (benchIx (TUV.unsafeIndex tuv1M   )) rix1M,
+     --    bench "10M"   $ whnf (benchIx (TUV.unsafeIndex tuv10M  )) rix10M
      --    ]         
     
      
      -- bgroup "unsafeModify" [
-     --    bench "10"    $ whnf (benchIx (flip (TUV.unsafeModify tuv10   ) (const 0) )) r10,
-     --    bench "100"   $ whnf (benchIx (flip (TUV.unsafeModify tuv100  ) (const 0) )) r100,
-     --    bench "10000" $ whnf (benchIx (flip (TUV.unsafeModify tuv10000) (const 0) )) r10000,
-     --    bench "1M"    $ whnf (benchIx (flip (TUV.unsafeModify tuv1M   ) (const 0) )) r1M
+     --    bench "10"    $ whnf (benchIx (flip (TUV.unsafeModify tuv10   ) (const 0) )) rix10,
+     --    bench "100"   $ whnf (benchIx (flip (TUV.unsafeModify tuv100  ) (const 0) )) rix100,
+     --    bench "10000" $ whnf (benchIx (flip (TUV.unsafeModify tuv10000) (const 0) )) rix10000,
+     --    bench "1M"    $ whnf (benchIx (flip (TUV.unsafeModify tuv1M   ) (const 0) )) rix1M
      --    ]      
      
      ],
@@ -202,48 +238,48 @@ main = defaultMainWith config [
    bgroup "HashMap" [
     
      -- bgroup "lookup" [
-     --    bench "10"    $ whnf (benchIx (flip HM.lookup h10   )) r10,
-     --    bench "100"   $ whnf (benchIx (flip HM.lookup h100  )) r100,
-     --    bench "1000"  $ whnf (benchIx (flip HM.lookup h1000 )) r100,
-     --    bench "10000" $ whnf (benchIx (flip HM.lookup h10000)) r10000,
-     --    bench "100k"  $ whnf (benchIx (flip HM.lookup h100k )) r100k,
-     --    bench "1M"    $ whnf (benchIx (flip HM.lookup h1M   )) r1M,
-     --    bench "10M"   $ whnf (benchIx (flip HM.lookup h10M  )) r10M
+     --    bench "10"    $ whnf (benchIx (flip HM.lookup h10   )) rix10,
+     --    bench "100"   $ whnf (benchIx (flip HM.lookup h100  )) rix100,
+     --    bench "1000"  $ whnf (benchIx (flip HM.lookup h1000 )) rix100,
+     --    bench "10000" $ whnf (benchIx (flip HM.lookup h10000)) rix10000,
+     --    bench "100k"  $ whnf (benchIx (flip HM.lookup h100k )) rix100k,
+     --    bench "1M"    $ whnf (benchIx (flip HM.lookup h1M   )) rix1M,
+     --    bench "10M"   $ whnf (benchIx (flip HM.lookup h10M  )) rix10M
      --    ]
 
   --    bgroup "update" [
-  --       bench "10"    $ whnf (benchIx (\k -> HM.insert k (k - 1) h10   )) r10,
-  --       bench "100"   $ whnf (benchIx (\k -> HM.insert k (k - 1) h100  )) r100,
-  --       bench "10000" $ whnf (benchIx (\k -> HM.insert k (k - 1) h10000)) r10000,
-  --       bench "1M"    $ whnf (benchIx (\k -> HM.insert k (k - 1) h1M   )) r1M
+  --       bench "10"    $ whnf (benchIx (\k -> HM.insert k (k - 1) h10   )) rix10,
+  --       bench "100"   $ whnf (benchIx (\k -> HM.insert k (k - 1) h100  )) rix100,
+  --       bench "10000" $ whnf (benchIx (\k -> HM.insert k (k - 1) h10000)) rix10000,
+  --       bench "1M"    $ whnf (benchIx (\k -> HM.insert k (k - 1) h1M   )) rix1M
   --       ]
 
      -- bgroup "modify" [        
-     --    bench "10"    $ whnf (foldl' (\s k -> HM.adjust (const 0) k s) h10   ) r10,
-     --    bench "100"   $ whnf (foldl' (\s k -> HM.adjust (const 0) k s) h100  ) r100,
-     --    bench "10000" $ whnf (foldl' (\s k -> HM.adjust (const 0) k s) h10000) r10000,
-     --    bench "1M"    $ whnf (foldl' (\s k -> HM.adjust (const 0) k s) h1M   ) r1M
+     --    bench "10"    $ whnf (foldl' (\s k -> HM.adjust (const 0) k s) h10   ) rix10,
+     --    bench "100"   $ whnf (foldl' (\s k -> HM.adjust (const 0) k s) h100  ) rix100,
+     --    bench "10000" $ whnf (foldl' (\s k -> HM.adjust (const 0) k s) h10000) rix10000,
+     --    bench "1M"    $ whnf (foldl' (\s k -> HM.adjust (const 0) k s) h1M   ) rix1M
      --    ]  
     ],
 
   bgroup "Seq" [
     
      -- bgroup "lookup" [
-     --    bench "10"    $ whnf (benchIx (S.index s10   )) r10,
-     --    bench "100"   $ whnf (benchIx (S.index s100  )) r100,
-     --    bench "10000" $ whnf (benchIx (S.index s10000)) r10000,
-     --    bench "1M"    $ whnf (benchIx (S.index s1M   )) r1M
+     --    bench "10"    $ whnf (benchIx (S.index s10   )) rix10,
+     --    bench "100"   $ whnf (benchIx (S.index s100  )) rix100,
+     --    bench "10000" $ whnf (benchIx (S.index s10000)) rix10000,
+     --    bench "1M"    $ whnf (benchIx (S.index s1M   )) rix1M
      --    ]
 
      -- bgroup "update" [
-     --    bench "10"    $ whnf (foldl' (\s k -> S.update k k s) s10   ) r10,
-     --    bench "100"   $ whnf (foldl' (\s k -> S.update k k s) s100  ) r100,
-     --    bench "10000" $ whnf (foldl' (\s k -> S.update k k s) s10000) r10000,
-     --    bench "1M"    $ whnf (foldl' (\s k -> S.update k k s) s1M   ) r1M
+     --    bench "10"    $ whnf (foldl' (\s k -> S.update k k s) s10   ) rix10,
+     --    bench "100"   $ whnf (foldl' (\s k -> S.update k k s) s100  ) rix100,
+     --    bench "10000" $ whnf (foldl' (\s k -> S.update k k s) s10000) rix10000,
+     --    bench "1M"    $ whnf (foldl' (\s k -> S.update k k s) s1M   ) rix1M
      --    ]
      ],   
 
-    bench "nop_ix" $ whnf (benchIx id) r100
+    bench "nop_rix" $ whnf (benchIx id) rix100
   ]
 
 
