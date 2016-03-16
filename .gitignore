@@ -5,3 +5,4 @@
 Bench
 dist
 /.cabal-sandbox
+/.stack-work
