@@ -45,9 +45,12 @@ import qualified Data.TrieVector.Array as A
 import Data.TrieVector.ArrayArray (AArray)
 import qualified Data.TrieVector.ArrayArray as AA
 
+import Debug.Trace
+
 #define NODE_WIDTH 16#
 #define KEY_BITS 4#
 #define KEY_MASK 15#
+#define SMALL_TAIL 8#
 
 type role Vector nominal
 
@@ -156,8 +159,9 @@ snoc (Vector size level init tail) v = let
     tailSize  = andI# size KEY_MASK
     initSize  = size -# tailSize
     size'     = size +# 1#
-    tail'     =
-      A.update NODE_WIDTH tail tailSize v
+    smallTail = SMALL_TAIL
+    width     = NODE_WIDTH
+    tail'     = A.snoc smallTail width tailSize undefElem tail v
 
     in case tailSize of
         KEY_MASK -> let
@@ -190,6 +194,7 @@ popVector (Vector size level init tail) = let
     tailSize  = andI# size KEY_MASK
     size'     = size -# 1#
     width     = NODE_WIDTH
+    smallTail = SMALL_TAIL
 
     in case tailSize of
         0# -> let
@@ -200,7 +205,7 @@ popVector (Vector size level init tail) = let
               0# -> Vector size' (next level) (AA.index init' 0#) popped
               _  -> Vector size' level init' popped
         _ -> let lasti = tailSize -# 1# in
-          Vector size' level init (A.update width tail lasti undefElem)
+          Vector size' level init (A.pop smallTail width tailSize undefElem tail)
 {-# INLINE popVector #-}
 
 -- | Pop from a 'Vector' and return both the 'Vector' and the last element.
@@ -210,6 +215,7 @@ pop (Vector size level init tail) = let
     tailSize  = andI# size KEY_MASK
     size'     = size -# 1#
     width     = NODE_WIDTH
+    smallTail = SMALL_TAIL
 
     in case tailSize of
         0# -> let
@@ -220,7 +226,7 @@ pop (Vector size level init tail) = let
               0# -> (Vector size' (next level) (AA.index init' 0#) popped, A.index popped (width -# 1#))
               _  -> (Vector size' level init' popped, A.index popped (width -# 1#))
         _ -> let lasti = tailSize -# 1# in
-          (Vector size' level init (A.update width tail lasti undefElem), A.index tail lasti)
+          (Vector size' level init (A.pop smallTail width tailSize undefElem tail), A.index tail lasti)
 {-# INLINE pop #-}
 
 snocFromList :: [a] -> Vector a
@@ -243,10 +249,11 @@ snocArr (Vector size level init tail) arr = let
 fromList :: [a] -> Vector a
 fromList = go empty where
   width = NODE_WIDTH
+  smallTail = SMALL_TAIL
   go acc@(Vector size level init _) xs = case A.fromList' width undefElem xs of
     (# arr, xs, consumed #) -> case consumed of
       NODE_WIDTH -> go (snocArr acc arr) xs
-      _          -> Vector (size +# consumed) level init arr
+      _          -> Vector (size +# consumed) level init (A.trim smallTail consumed arr)
 {-# INLINE fromList #-}
 
 
@@ -406,8 +413,9 @@ noCopyModify'# v@(Vector size level init tail) i f = case i >=# 0# of
     modifyAA 0#    arr = a2aa (A.noCopyModify' width (aa2a arr) (index i 0#) f)
     modifyAA level arr = AA.noCopyModify width arr (index i level) (modifyAA (next level))
 
-    tailSize = andI# size KEY_MASK
-    initSize = size -# tailSize
+    tailSize  = andI# size KEY_MASK
+    initSize  = size -# tailSize
+    smallTail = SMALL_TAIL
     in case i <# initSize of
         1# -> let
           init' = modifyAA level init in
@@ -416,7 +424,7 @@ noCopyModify'# v@(Vector size level init tail) i f = case i >=# 0# of
             _  -> Vector size level init' tail
         _  -> case i <# size of
             1# -> let
-              tail' = A.noCopyModify' width tail (i -# initSize) f in
+              tail' = A.noCopyModifyTrim' smallTail width tailSize tail (i -# initSize) f in
               case AA.ptrEq (a2aa tail) (a2aa tail') of
                 1# -> v
                 _  -> Vector size level init tail'
@@ -439,14 +447,10 @@ inits = go where
   go v = v : go (fst $ pop v)
 {-# INLINE inits #-}
 
--- revTails :: Vector a -> [Vector a]
--- revTails = Data.TrieVector.inits . Data.TrieVector.reverse where
--- {-# INLINE revTails #-}
-
 empty :: Vector a
 empty = Vector 0# 0# emptyAA emptyTail where
     !emptyAA   = AA.new 0# undefElem
-    !emptyTail = A.new NODE_WIDTH undefElem
+    !emptyTail = aa2a emptyAA
 {-# NOINLINE empty #-}
 
 singleton :: a -> Vector a
@@ -643,5 +647,6 @@ nFields addr n = go 0# where
 #undef NODE_WIDTH
 #undef KEY_BITS
 #undef KEY_MASK
+#undef SMALL_TAIL
 
 

@@ -14,6 +14,10 @@ import qualified Data.Vector.Unboxed as UV
 import qualified Data.Map.Strict as M
 import qualified Data.Sequence as S
 
+import qualified Data.TrieVector.Array as A
+
+import Debug.Trace
+
 -- tvnSafe :: Int -> ()
 -- tvnSafe n = seq (TV.safeFromList [1..n]) ()
 
@@ -43,6 +47,12 @@ sn n = seq (S.fromList [0..n]) ()
 
 main = do
   print $ tvn' 100000
+
+-- main = do
+  -- print (TV.snocFromList [0..10])
+
+  -- -- print $ A.toList (A.fromList 5# (error "fl") [0, 1, 2, 3, 4])
+  -- print $ toList' 1# (A.snoc 8# 16# 1# (error "snoc") (A.fromList 0# (error "fl") []) (0::Int))
 
 
 

@@ -119,90 +119,77 @@ main = defaultMain $ localOption (QuickCheckMaxSize 1000) $
 
          testGroup "TrieVector" [
 
-           --   testProperty "length/fromList" $
-           --     \(xs :: [Int]) -> length xs === V.length (V.fromList xs)
+             testProperty "length/fromList" $
+               \(xs :: [Int]) -> length xs === V.length (V.fromList xs)
 
-           -- , testProperty "toList/fromList" $
-           --     \(xs :: [Int]) -> xs === F.toList (V.fromList xs)
+           , testProperty "toList/fromList" $
+               \(xs :: [Int]) -> xs === F.toList (V.fromList xs)
 
-           -- , testProperty "toList/snocFromList" $
-           --     \(xs :: [Int]) -> xs === F.toList (V.snocFromList xs)
+           , testProperty "toList/snocFromList" $
+               \(xs :: [Int]) -> xs === F.toList (V.snocFromList xs)
 
-           -- , testProperty "snoc" $
-           --     \(xs :: [Int]) (x :: Int) ->
-           --       (xs ++ [x]) === F.toList (V.fromList xs V.|> x)
+           , testProperty "snoc" $
+               \(xs :: [Int]) (x :: Int) ->
+                 (xs ++ [x]) === F.toList (V.fromList xs V.|> x)
 
-           -- , testProperty "append" $
-           --     \(xs :: [Int]) (ys :: [Int]) ->
-           --       (xs ++ ys) === F.toList (mappend (V.fromList xs) (V.fromList ys))
+           , testProperty "append" $
+               \(xs :: [Int]) (ys :: [Int]) ->
+                 (xs ++ ys) === F.toList (mappend (V.fromList xs) (V.fromList ys))
 
-           -- , testProperty "!" $
-           --     \(xs :: [Int]) -> not (null xs) ==>
-           --        let vec = V.fromList xs in
-           --        forAll (choose (0, length xs - 1)) $ \i ->
-           --        (xs !! i) === (vec V.! i)
+           , testProperty "!" $
+               \(xs :: [Int]) -> not (null xs) ==>
+                  let vec = V.fromList xs in
+                  forAll (choose (0, length xs - 1)) $ \i ->
+                  (xs !! i) === (vec V.! i)
 
-           testProperty "pop" $
+           , testProperty "pop" $
                \(xs :: [Int]) -> not (null xs) ==>
                   ((init xs, last xs) === over _1 F.toList (V.pop (V.fromList xs)))
 
-           -- , testProperty "map" $
-           --     \(xs :: [Int]) (f :: Fun Int Int) ->
-           --       map (apply f) xs === F.toList (V.map (apply f) (V.fromList xs))
+           , testProperty "map" $
+               \(xs :: [Int]) (f :: Fun Int Int) ->
+                 map (apply f) xs === F.toList (V.map (apply f) (V.fromList xs))
 
-           -- , testProperty "foldr" $
-           --     \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
-           --       foldr (apply2 f) z xs === (V.foldr (apply2 f) z (V.fromList xs))
+           , testProperty "foldr" $
+               \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
+                 foldr (apply2 f) z xs === (V.foldr (apply2 f) z (V.fromList xs))
 
-           -- , testProperty "rfoldr" $
-           --     \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
-           --       foldr (apply2 f) z (reverse xs) ===
-           --       (V.rfoldr (apply2 f) z (V.fromList xs))
+           , testProperty "rfoldr" $
+               \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
+                 foldr (apply2 f) z (reverse xs) ===
+                 (V.rfoldr (apply2 f) z (V.fromList xs))
 
-           -- , testProperty "foldl'" $
-           --     \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
-           --       foldl (apply2 f) z xs ===
-           --       (V.foldl' (apply2 f) z (V.fromList xs))
+           , testProperty "foldl'" $
+               \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
+                 foldl (apply2 f) z xs ===
+                 (V.foldl' (apply2 f) z (V.fromList xs))
 
-           -- , testProperty "rfoldl'" $
-           --     \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
-           --       foldl (apply2 f) z (reverse xs) ===
-           --       (V.rfoldl' (apply2 f) z (V.fromList xs))
+           , testProperty "rfoldl'" $
+               \(xs :: [Int]) (f :: Fun Int (Fun Int Int)) (z :: Int) ->
+                 foldl (apply2 f) z (reverse xs) ===
+                 (V.rfoldl' (apply2 f) z (V.fromList xs))
 
-           -- testProperty "modify" $
-           --     \(xs :: [Int]) (f :: Fun Int Int) -> not (null xs) ==>
-           --       forAll (choose (0, length xs - 1)) $ \i ->
-           --       (xs& ix i %~ apply f) ===
-           --       (F.toList (V.modify (V.fromList xs) i (apply f)))
+           , testProperty "modify" $
+               \(xs :: [Int]) (f :: Fun Int Int) -> not (null xs) ==>
+                 forAll (choose (0, length xs - 1)) $ \i ->
+                 (xs& ix i %~ apply f) ===
+                 (F.toList (V.modify (V.fromList xs) i (apply f)))
 
-           -- testProperty "modify2" $
+           , testProperty "noCopyModify'#" $
+               \(xs :: [Int]) (f :: Fun Int Int) -> not (null xs) ==>
+                 forAll (choose (0, length xs - 1)) $ \i@(I# pi) ->
+                 (xs& ix i %~ apply f) ===
+                 (F.toList (V.noCopyModify'# (V.fromList xs) pi (apply f)))
 
-           --       \(xs :: [Int]) -> xs /= [] ==>
-           --       \(f :: Fun Int Int) ->
-           --       forAll (choose (0, length xs - 1)) $ \i ->
-           --       (xs& ix i %~ apply f) ===
-           --       (F.toList (V.modify2 (V.fromList xs) i (apply f)))
+           , localOption (QuickCheckMaxSize 200) $ testProperty "append" $
+               \(xs :: [Int]) (ys :: [Int]) ->
+               (xs ++ ys) === F.toList (V.fromList xs `mappend` V.fromList ys)
 
+           , testProperty "reverse" $
+             \(xs :: [Int]) -> reverse xs === F.toList (V.reverse (V.fromList xs))
 
-           -- , testProperty "noCopyModify'#" $
-           --     \(xs :: [Int]) (f :: Fun Int Int) -> not (null xs) ==>
-           --       forAll (choose (0, length xs - 1)) $ \i@(I# pi) ->
-           --       (xs& ix i %~ apply f) ===
-           --       (F.toList (V.noCopyModify'# (V.fromList xs) pi (apply f)))
-
-           -- , localOption (QuickCheckMaxSize 200) $ testProperty "append" $
-           --     \(xs :: [Int]) (ys :: [Int]) ->
-           --     (xs ++ ys) === F.toList (V.fromList xs `mappend` V.fromList ys)
-
-           -- , testProperty "reverse" $
-           --   \(xs :: [Int]) -> reverse xs === F.toList (V.reverse (V.fromList xs))
-
-           -- , testProperty "inits" $
-           --   \(xs :: [Int]) -> reverse (inits xs) === map F.toList (V.inits (V.fromList xs))
-
-           -- , testProperty "revTails" $
-           --   \(xs :: [Int]) -> map reverse (tails xs)
-           --                     === map F.toList (V.revTails (V.fromList xs))
+           , testProperty "inits" $
+             \(xs :: [Int]) -> reverse (inits xs) === map F.toList (V.inits (V.fromList xs))
 
            ]
 

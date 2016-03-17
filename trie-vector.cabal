@@ -26,7 +26,7 @@ library
         Data.TrieVector.ArrayPrimWrap
 
   ghc-options:
-    -O2 -fllvm -fno-warn-name-shadowing -fno-warn-missing-signatures
+    -fno-warn-name-shadowing -fno-warn-missing-signatures -O2 -fllvm
 
   build-depends:
     base >=4.7,
@@ -114,6 +114,6 @@ benchmark misc
     containers, unordered-containers
 
   ghc-options:
-    -Wall -O2 -fllvm -with-rtsopts=-s
+    -Wall 
 
 

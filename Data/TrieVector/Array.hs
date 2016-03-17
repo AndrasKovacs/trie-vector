@@ -20,15 +20,20 @@ module Data.TrieVector.Array (
     , init2
     , map
     , modify
+    , modifyTrim
     , modify'
+    , modifyTrim'
     , new
     , noCopyModify'
+    , noCopyModifyTrim'
     , pop
     , rfoldl'
     , rfoldr
     , snoc
     , toList
+    , trim
     , update
+    , updateTrim
     ) where
 
 import qualified Data.TrieVector.ArrayPrimWrap as A
@@ -45,6 +50,25 @@ update size arr i a = A.run $ \s ->
         (# s, marr #) -> case A.write marr i a s of
             s -> A.unsafeFreeze marr s
 {-# INLINE update #-}
+
+trimSize :: Int# -> Int# -> Int# -> Int#
+trimSize small large actual = case actual <=# small of
+  1# -> actual
+  _  -> large
+{-# INLINE trimSize #-}
+
+updateTrim :: Int# -> Int# -> Int# -> Array a -> Int# -> a -> Array a
+updateTrim small large elems arr i a = A.run $ \s ->
+  case A.thaw arr 0# (trimSize small large elems) s of
+    (# s, marr #) -> case A.write marr i a s of
+      s -> A.unsafeFreeze marr s
+{-# INLINE updateTrim #-}
+
+trim :: Int# -> Int# -> Array a -> Array a
+trim small size arr = case size <=# small of
+  1# -> A.clone arr 0# size
+  _  -> arr
+{-# INLINE trim #-}
 
 -- | Optimized snoccing. Invariant: if "size" > "small", then the
 --   size of the array is "large". If "size" <= "small", then the
@@ -72,6 +96,14 @@ modify size arr i f = A.run $ \s ->
                 s -> A.unsafeFreeze marr s
 {-# INLINE modify #-}
 
+modifyTrim :: Int# -> Int# -> Int# -> Array a -> Int# -> (a -> a) -> Array a
+modifyTrim small large elems arr i f = A.run $ \s ->
+    case A.thaw arr 0# (trimSize small large elems) s of
+        (# s, marr #) -> case A.read marr i s of
+            (# s, a #) -> case A.write marr i (f a) s of
+                s -> A.unsafeFreeze marr s
+{-# INLINE modifyTrim #-}
+
 modify' :: Int# -> Array a -> Int# -> (a -> a) -> Array a
 modify' size arr i f = A.run $ \s ->
     case A.thaw arr 0# size s of
@@ -79,6 +111,14 @@ modify' size arr i f = A.run $ \s ->
             (# s, a #) -> let !val = f a in case A.write marr i val s of
                 s -> A.unsafeFreeze marr s
 {-# INLINE modify' #-}
+
+modifyTrim' :: Int# -> Int# -> Int# -> Array a -> Int# -> (a -> a) -> Array a
+modifyTrim' small large elems arr i f = A.run $ \s ->
+    case A.thaw arr 0# (trimSize small large elems) s of
+        (# s, marr #) -> case A.read marr i s of
+            (# s, a #) -> let !val = f a in case A.write marr i val s of
+                s -> A.unsafeFreeze marr s
+{-# INLINE modifyTrim' #-}
 
 noCopyModify' :: Int# -> Array a -> Int# -> (a -> a) -> Array a
 noCopyModify' size arr i f = let
@@ -88,6 +128,15 @@ noCopyModify' size arr i f = let
       1# -> arr
       _  -> update size arr i a'
 {-# INLINE noCopyModify' #-}
+
+noCopyModifyTrim' :: Int# -> Int# -> Int# -> Array a -> Int# -> (a -> a) -> Array a
+noCopyModifyTrim' small large elems arr i f = let
+  a   = index arr i
+  !a' = f a
+  in case reallyUnsafePtrEquality# a a' of
+      1# -> arr
+      _  -> updateTrim small large elems arr i a'
+{-# INLINE noCopyModifyTrim' #-}
 
 map :: forall a b. Int# -> (a -> b) ->  Array a -> Array b
 map size f = \arr ->
