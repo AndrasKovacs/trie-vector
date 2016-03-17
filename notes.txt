@@ -2,6 +2,8 @@ TODO:
 
 - small tail optimization: only keep n elements for some n < m in the tail arrays
   and use out-of-line copy
+     -- write tests with proper generation of valid tails
+
 - Drop "level" field from vector, instead recompute level with popcount from size
 - Implement traversal and folding with State# threading
   - Use it to implement faster concatenation

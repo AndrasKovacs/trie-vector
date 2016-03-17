@@ -4,26 +4,29 @@
 module Data.TrieVector.ArrayPrim (
       Array
     , MArray
-    , new
-    , write
-    , read
-    , thaw
-    , index
-    , freeze
-    , unsafeFreeze
-    , unsafeThaw
-    , sizeof
-    , sizeofMut
-    , copy
-    , copyMut
+    , cas
     , clone
     , cloneMut
-    , cas
-    , sameMut
+    , copy
+    , copyMut
+    , freeze
+    , index
+    , new
+    , read
     , run
+    , sameMut
+    , sizeof
+    , sizeofMut
+    , snoc
+    , snocWithPadding
+    , thaw
+    , unsafeFreeze
+    , unsafeThaw
+    , write
     ) where
 
-import GHC.Prim  
+import GHC.Prim
+import GHC.Prim.Array
 import GHC.Types 
 import GHC.Base (realWorld#)
 
@@ -32,41 +35,43 @@ import Prelude hiding (read)
 type Array = Array#
 type MArray = MutableArray#
 
-new = newArray#
-write = writeArray#
-read = readArray#
-thaw = thawArray#
-index = indexArray#
-freeze = freezeArray#
-unsafeFreeze = unsafeFreezeArray#
-unsafeThaw = unsafeThawArray#
-sizeof = sizeofArray#
-sizeofMut = sizeofMutableArray#
-copy = copyArray#
-copyMut = copyMutableArray#
+cas = casArray#
 clone = cloneArray#
 cloneMut = cloneMutableArray#
-cas = casArray#
+copy = copyArray#
+copyMut = copyMutableArray#
+freeze = freezeArray#
+index = indexArray#
+new = newArray#
+read = readArray#
 sameMut = sameMutableArray#
+sizeof = sizeofArray#
+sizeofMut = sizeofMutableArray#
+snoc = snocArray#
+snocWithPadding = snocArrayWithPadding#
+thaw = thawArray#
+unsafeFreeze = unsafeFreezeArray#
+unsafeThaw = unsafeThawArray#
+write = writeArray#
 
 run :: (forall s. State# s -> (# State# s, Array a #)) -> Array a
 run strep = case strep realWorld# of
   (# _, arr #) -> arr
 {-# INLINE [0] run #-}
 
-{-# INLINE new #-}
-{-# INLINE write #-}
-{-# INLINE read #-}
-{-# INLINE thaw #-}
-{-# INLINE index #-}
-{-# INLINE freeze #-}
-{-# INLINE unsafeFreeze #-}
-{-# INLINE unsafeThaw #-}
-{-# INLINE sizeof #-}
-{-# INLINE sizeofMut #-}
-{-# INLINE copy #-}
-{-# INLINE copyMut #-}
+{-# INLINE cas #-}
 {-# INLINE clone #-}
 {-# INLINE cloneMut #-}
-{-# INLINE cas #-}
+{-# INLINE copy #-}
+{-# INLINE copyMut #-}
+{-# INLINE freeze #-}
+{-# INLINE index #-}
+{-# INLINE new #-}
+{-# INLINE read #-}
 {-# INLINE sameMut #-}
+{-# INLINE sizeof #-}
+{-# INLINE sizeofMut #-}
+{-# INLINE thaw #-}
+{-# INLINE unsafeFreeze #-}
+{-# INLINE unsafeThaw #-}
+{-# INLINE write #-}

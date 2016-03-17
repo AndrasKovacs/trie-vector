@@ -2,38 +2,39 @@
 {-# OPTIONS_GHC -fno-full-laziness -fno-warn-name-shadowing #-}
 
 module Data.TrieVector.Array (
-      A.run
+      Array
+    , MArray
+    , A.run
+    , A.read
     , A.sizeof
     , A.thaw
-    , A.unsafeThaw
     , A.unsafeFreeze
-    , A.read
+    , A.unsafeThaw
     , A.write
-    , update
-    , modify
-    , modify'
-    , noCopyModify'
-    , index
-    , new
-    , toList
+    , foldl'
+    , foldr
     , fromList
     , fromList'
+    , index
     , init1
     , init2
-    , foldr
-    , map 
-    , foldl'
+    , map
+    , modify
+    , modify'
+    , new
+    , noCopyModify'
+    , pop
     , rfoldl'
     , rfoldr
-    , Array
-    , MArray
+    , snoc
+    , toList
+    , update
     ) where
 
 import qualified Data.TrieVector.ArrayPrimWrap as A
 
 import Prelude hiding (foldr, map)
 import GHC.Prim
-import GHC.Prim.Array
 
 type Array a = A.Array a
 type MArray s a = A.MArray s a
@@ -44,6 +45,24 @@ update size arr i a = A.run $ \s ->
         (# s, marr #) -> case A.write marr i a s of
             s -> A.unsafeFreeze marr s
 {-# INLINE update #-}
+
+-- | Optimized snoccing. Invariant: if "size" > "small", then the
+--   size of the array is "large". If "size" <= "small", then the
+--   size of the array is trimmed to the number of elements.
+snoc :: Int# -> Int# -> Int# -> a -> Array a -> a -> Array a
+snoc small large elems undefElem arr a = case elems <# small of
+  1# -> A.snoc arr a
+  _  -> case elems ==# small of
+    1# -> A.snocWithPadding (large -# (elems +# 1#)) undefElem arr a
+    _  -> update large arr elems a
+{-# INLINE snoc #-}
+
+-- | Pop with the same invariant described above in "snoc".
+pop :: Int# -> Int# -> Int# -> a -> Array a -> Array a
+pop small large elems undefElem arr = case elems <=# (small +# 1#) of
+  1# -> A.clone arr 0# (elems -# 1#)
+  _  -> update large arr (elems -# 1#) undefElem
+{-# INLINE pop #-}
 
 modify :: Int# -> Array a -> Int# -> (a -> a) -> Array a
 modify size arr i f = A.run $ \s ->
@@ -68,7 +87,7 @@ noCopyModify' size arr i f = let
   in case reallyUnsafePtrEquality# a a' of
       1# -> arr
       _  -> update size arr i a'
-{-# INLINE noCopyModify' #-}        
+{-# INLINE noCopyModify' #-}
 
 map :: forall a b. Int# -> (a -> b) ->  Array a -> Array b
 map size f = \arr ->
@@ -84,9 +103,9 @@ map size f = \arr ->
 {-# INLINE map #-}
 
 index :: Array a -> Int# -> a
-index arr i = case A.index arr i of 
+index arr i = case A.index arr i of
     (# a #) -> a
-{-# INLINE index #-} 
+{-# INLINE index #-}
 
 new :: Int# -> a -> Array a
 new n a = A.run $ \s -> case A.new n a s of
@@ -97,14 +116,14 @@ foldr :: Int# -> (a -> b -> b) -> b -> Array a -> b
 foldr size f = \z arr -> go 0# size z arr where
     go i s z arr = case i <# s of
         1# -> f (index arr i) (go (i +# 1#) s z arr)
-        _  -> z 
+        _  -> z
 {-# INLINE foldr #-}
 
 rfoldr :: Int# -> (a -> b -> b) -> b -> Array a -> b
 rfoldr size f = \z arr -> go (size -# 1#) z arr where
-    go i z arr = case i >=# 0# of 
+    go i z arr = case i >=# 0# of
         1# -> f (index arr i) (go (i -# 1#) z arr)
-        _  -> z 
+        _  -> z
 {-# INLINE rfoldr #-}
 
 foldl' :: Int# -> (b -> a -> b) -> b -> Array a -> b
@@ -120,13 +139,13 @@ rfoldl' size f = \z arr -> go (size -# 1#) z arr where
         1# -> go (i -# 1#) (f z (index arr i)) arr
         _  -> z
 {-# INLINE rfoldl' #-}
- 
+
 fromList :: Int# -> a -> [a] -> Array a
-fromList size def xs = A.run $ \s -> 
+fromList size def xs = A.run $ \s ->
     case A.new size def s of
         (# s, marr #) -> go xs 0# s where
             go (x:xs) i s = case A.write marr i x s of s -> go xs (i +# 1#) s
-            go _      _ s = A.unsafeFreeze marr s 
+            go _      _ s = A.unsafeFreeze marr s
 {-# INLINE fromList #-}
 
 runFromList' ::
@@ -148,7 +167,7 @@ fromList' size def xs = runFromList' $ \s ->
           _  -> case xs of
             x:xs -> case A.write marr i x s of s -> go xs (i +# 1#) s
             []   -> (# s, [], i #)
-{-# INLINE fromList' #-}            
+{-# INLINE fromList' #-}
 
 toList :: Array a -> [a]
 toList arr = foldr (A.sizeof arr) (:) [] arr
