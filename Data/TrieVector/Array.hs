@@ -37,12 +37,16 @@ import GHC.Prim
 type Array a = A.Array a
 type MArray s a = A.MArray s a
 
+undefElem :: a
+undefElem = error "undefined"
+{-# noinline undefElem #-}
+
 update :: Int# -> Array a -> Int# -> a -> Array a
 update size arr i a = A.run $ \s ->
     case A.thaw arr 0# size s of
         (# s, marr #) -> case A.write marr i a s of
             s -> A.unsafeFreeze marr s
-{-# INLINE update #-}
+{-# inline update #-}
 
 modify :: Int# -> Array a -> Int# -> (a -> a) -> Array a
 modify size arr i f = A.run $ \s ->
@@ -50,7 +54,7 @@ modify size arr i f = A.run $ \s ->
         (# s, marr #) -> case A.read marr i s of
             (# s, a #) -> case A.write marr i (f a) s of
                 s -> A.unsafeFreeze marr s
-{-# INLINE modify #-}
+{-# inline modify #-}
 
 modify' :: Int# -> Array a -> Int# -> (a -> a) -> Array a
 modify' size arr i f = A.run $ \s ->
@@ -58,7 +62,7 @@ modify' size arr i f = A.run $ \s ->
         (# s, marr #) -> case A.read marr i s of
             (# s, a #) -> let !val = f a in case A.write marr i val s of
                 s -> A.unsafeFreeze marr s
-{-# INLINE modify' #-}
+{-# inline modify' #-}
 
 noCopyModify' :: Int# -> Array a -> Int# -> (a -> a) -> Array a
 noCopyModify' size arr i f = let
@@ -67,7 +71,7 @@ noCopyModify' size arr i f = let
   in case reallyUnsafePtrEquality# a a' of
       1# -> arr
       _  -> update size arr i a'
-{-# INLINE noCopyModify' #-}        
+{-# inline noCopyModify' #-}        
 
 map :: forall a b. Int# -> (a -> b) ->  Array a -> Array b
 map size f = \arr ->
@@ -77,48 +81,48 @@ map size f = \arr ->
                 s -> go (i +# 1#) marr size s
             _  -> s
     in A.run $ \s ->
-        case A.new size undefined s of
+        case A.new size undefElem s of
             (# s, marr #) -> case go 0# marr size s of
                 s -> A.unsafeFreeze marr s
-{-# INLINE map #-}
+{-# inline map #-}
 
 index :: Array a -> Int# -> a
 index arr i = case A.index arr i of 
     (# a #) -> a
-{-# INLINE index #-} 
+{-# inline index #-} 
 
 new :: Int# -> a -> Array a
 new n a = A.run $ \s -> case A.new n a s of
     (# s, marr #) -> A.unsafeFreeze marr s
-{-# INLINE new #-}
+{-# inline new #-}
 
 foldr :: Int# -> (a -> b -> b) -> b -> Array a -> b
 foldr size f = \z arr -> go 0# size z arr where
     go i s z arr = case i <# s of
         1# -> f (index arr i) (go (i +# 1#) s z arr)
         _  -> z 
-{-# INLINE foldr #-}
+{-# inline foldr #-}
 
 rfoldr :: Int# -> (a -> b -> b) -> b -> Array a -> b
 rfoldr size f = \z arr -> go (size -# 1#) z arr where
     go i z arr = case i >=# 0# of 
         1# -> f (index arr i) (go (i -# 1#) z arr)
         _  -> z 
-{-# INLINE rfoldr #-}
+{-# inline rfoldr #-}
 
 foldl' :: Int# -> (b -> a -> b) -> b -> Array a -> b
 foldl' size f = \z arr -> go 0# size z arr  where
     go i s !z arr = case i <# s of
         1# -> go (i +# 1#) s (f z (index arr i)) arr
         _  -> z
-{-# INLINE foldl' #-}
+{-# inline foldl' #-}
 
 rfoldl' :: Int# -> (b -> a -> b) -> b -> Array a -> b
 rfoldl' size f = \z arr -> go (size -# 1#) z arr where
     go i !z arr = case i >=# 0# of
         1# -> go (i -# 1#) (f z (index arr i)) arr
         _  -> z
-{-# INLINE rfoldl' #-}
+{-# inline rfoldl' #-}
  
 fromList :: Int# -> a -> [a] -> Array a
 fromList size def xs = A.run $ \s -> 
@@ -126,13 +130,13 @@ fromList size def xs = A.run $ \s ->
         (# s, marr #) -> go xs 0# s where
             go (x:xs) i s = case A.write marr i x s of s -> go xs (i +# 1#) s
             go _      _ s = A.unsafeFreeze marr s 
-{-# INLINE fromList #-}
+{-# inline fromList #-}
 
 runFromList' ::
   (forall s. State# s -> (# State# s, Array a, [a], Int# #)) -> (# Array a, [a], Int# #)
 runFromList' strep = case strep realWorld# of
   (# _, arr, xs, read #) -> (# arr, xs, read #)
-{-# INLINE [0] runFromList' #-}
+{-# inline [0] runFromList' #-}
 
 -- | Returns: Array, rest of the input list, number of elems consumed
 fromList' :: Int# -> a -> [a] -> (# Array a, [a], Int# #)
@@ -147,18 +151,18 @@ fromList' size def xs = runFromList' $ \s ->
           _  -> case xs of
             x:xs -> case A.write marr i x s of s -> go xs (i +# 1#) s
             []   -> (# s, [], i #)
-{-# INLINE fromList' #-}            
+{-# inline fromList' #-}            
 
 toList :: Array a -> [a]
 toList arr = foldr (A.sizeof arr) (:) [] arr
-{-# INLINE toList #-}
+{-# inline toList #-}
 
 init1 :: Int# -> a -> a -> Array a
 init1 size a def = A.run $ \s ->
     case A.new size def s of
         (# s, marr #) -> case A.write marr 0# a s of
             s -> A.unsafeFreeze marr s
-{-# INLINE init1 #-}
+{-# inline init1 #-}
 
 init2 :: Int# -> a -> a -> a -> Array a
 init2 size a1 a2 def = A.run $ \s ->
@@ -166,5 +170,5 @@ init2 size a1 a2 def = A.run $ \s ->
         (# s, marr #) -> case A.write marr 0# a1 s of
             s -> case A.write marr 1# a2 s of
                 s -> A.unsafeFreeze marr s
-{-# INLINE init2 #-}
+{-# inline init2 #-}
 

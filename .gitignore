@@ -5,3 +5,6 @@
 Bench
 dist
 /.cabal-sandbox
+/.stack-work
+TAGS
+*.html

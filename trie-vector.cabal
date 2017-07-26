@@ -40,7 +40,7 @@ test-suite tests
   type: exitcode-stdio-1.0        
 
   build-depends:
-    trie-vector == 0.1.0.0,
+    trie-vector,
     tasty,
     QuickCheck,
     tasty-quickcheck,
@@ -59,6 +59,7 @@ benchmark benchmarks
   type: exitcode-stdio-1.0
 
   build-depends:
+    trie-vector,
     unordered-containers,
     containers,
     base,
@@ -80,7 +81,7 @@ executable memtest
   main-is: MemTest.hs
   
   build-depends:
-    base, ghc-prim, primitive, random, vector,
+    trie-vector, base, ghc-prim, primitive, random, vector,
     containers, unordered-containers
 
   ghc-options:
