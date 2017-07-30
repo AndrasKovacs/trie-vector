@@ -11,6 +11,7 @@ module Data.TrieVector.ByteArray (
       run
     , thaw
     , modify'
+    , noCopyModify'
     , map
     , index
     , foldr
@@ -59,6 +60,15 @@ modify' size arr i f = run $ \s ->
         (# s, marr #) -> case writeByteArray# marr i (f (index arr i)) s of
             s -> unsafeFreezeByteArray# marr s 
 {-# INLINE modify' #-}
+
+noCopyModify' :: forall a. (Prim a, Eq a) => Int# -> ByteArray# -> Int# -> (a -> a) -> ByteArray#
+noCopyModify' size arr i f = let
+  a   = index arr i
+  !a' = f a
+  in if a == a'
+       then arr
+       else update size arr i a'
+{-# inline noCopyModify' #-}
 
 map :: forall a b. (Prim a, Prim b) => Int# -> (a -> b) -> ByteArray# -> ByteArray#
 map size f = \arr ->

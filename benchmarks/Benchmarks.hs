@@ -14,6 +14,8 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.Sequence as S
 import qualified Data.Map.Strict as M
 
+import qualified Data.Primitive.ByteArray as BA
+
 import Data.List
 
 randix :: Int -> [Int]
@@ -97,7 +99,7 @@ main :: IO ()
 main = do
 
   defaultMainWith config [
-    bgroup "Boxed" [
+    bgroup "TrieVector" [
     
        bgroup "index" [
           bench "10"    $ whnf (benchIx ((TV.!) tv10   )) r10,
@@ -219,15 +221,15 @@ main = do
     
      bgroup "HashMap" [
       
-       -- bgroup "lookup" [
-       --    bench "10"    $ whnf (benchIx (flip HM.lookup h10   )) r10,
-       --    bench "100"   $ whnf (benchIx (flip HM.lookup h100  )) r100,
-       --    bench "1000"  $ whnf (benchIx (flip HM.lookup h1000 )) r100,
-       --    bench "10000" $ whnf (benchIx (flip HM.lookup h10000)) r10000,
-       --    bench "100k"  $ whnf (benchIx (flip HM.lookup h100k )) r100k,
-       --    bench "1M"    $ whnf (benchIx (flip HM.lookup h1M   )) r1M,
-       --    bench "10M"   $ whnf (benchIx (flip HM.lookup h10M  )) r10M
-       --    ]
+       bgroup "lookup" [
+          bench "10"    $ whnf (benchIx (flip HM.lookup h10   )) r10,
+          bench "100"   $ whnf (benchIx (flip HM.lookup h100  )) r100,
+          bench "1000"  $ whnf (benchIx (flip HM.lookup h1000 )) r100,
+          bench "10000" $ whnf (benchIx (flip HM.lookup h10000)) r10000,
+          bench "100k"  $ whnf (benchIx (flip HM.lookup h100k )) r100k,
+          bench "1M"    $ whnf (benchIx (flip HM.lookup h1M   )) r1M,
+          bench "10M"   $ whnf (benchIx (flip HM.lookup h10M  )) r10M
+          ],
     
        --    bgroup "update" [
        --       bench "10"    $ whnf (benchIx (\k -> HM.insert k (k - 1) h10   )) r10,
@@ -236,12 +238,15 @@ main = do
        --       bench "1M"    $ whnf (benchIx (\k -> HM.insert k (k - 1) h1M   )) r1M
        --       ]
     
-       -- bgroup "modify" [        
-       --    bench "10"    $ whnf (foldl' (\s k -> HM.adjust (const 0) k s) h10   ) r10,
-       --    bench "100"   $ whnf (foldl' (\s k -> HM.adjust (const 0) k s) h100  ) r100,
-       --    bench "10000" $ whnf (foldl' (\s k -> HM.adjust (const 0) k s) h10000) r10000,
-       --    bench "1M"    $ whnf (foldl' (\s k -> HM.adjust (const 0) k s) h1M   ) r1M
-       --    ]  
+       bgroup "modify" [        
+          bench "10"    $ whnf (foldl' (\s k -> HM.adjust (const 0) k s) h10   ) r10,
+          bench "100"   $ whnf (foldl' (\s k -> HM.adjust (const 0) k s) h100  ) r100,
+          bench "1000"  $ whnf (foldl' (\s k -> HM.adjust (const 0) k s) h1000 ) r1000,
+          bench "10000" $ whnf (foldl' (\s k -> HM.adjust (const 0) k s) h10000) r10000,
+          bench "100k"  $ whnf (foldl' (\s k -> HM.adjust (const 0) k s) h100k ) r100k,
+          bench "1M"    $ whnf (foldl' (\s k -> HM.adjust (const 0) k s) h1M   ) r1M,
+          bench "10M"   $ whnf (foldl' (\s k -> HM.adjust (const 0) k s) h10M  ) r10M     
+          ]  
       ],
     
     bgroup "Seq" [      
@@ -264,9 +269,9 @@ main = do
           bench "1M"    $ whnf (foldl' (\s k -> S.update k k s) s1M   ) r1M,
           bench "10M"   $ whnf (foldl' (\s k -> S.update k k s) s10M  ) r10M
           ]
-       ]
+       ],
     
-      -- bench "nop_ix" $ whnf (benchIx id) r100
+      bench "nop_ix" $ whnf (benchIx id) r100
     ]
 
 
