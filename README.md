@@ -1,4 +1,4 @@
-persistent-vector
+persistent-vector  ![Build](https://travis-ci.org/AndrasKovacs/trie-vector.svg?branch=master)
 =================
 
 Clojure-style persistent vector for Haskell.
